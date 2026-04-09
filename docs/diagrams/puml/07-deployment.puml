@@ -1,0 +1,70 @@
+@startuml 07-deployment
+skinparam backgroundColor #FFFFFF
+skinparam node {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+}
+skinparam component {
+  BackgroundColor #F8FAFC
+  BorderColor #E2E8F0
+}
+skinparam database {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+}
+title Stratos — Docker Compose Deployment Architecture
+
+node "Docker Network\n(stratos_default)" {
+
+  node "django container\n(Python 3.12 / Django 4.2)" as DJNODE {
+    component "Django WSGI App" as DJANGO
+    component "REST API\n(DRF 5 endpoints)" as API
+    component "Template Views\n(9 pages)" as VIEWS
+  }
+
+  node "celery container\n(Celery 5.3 worker)" as CELNODE {
+    component "analyze_email_task" as ATASK
+    component "fetch_gmail_task" as FTASK
+    component "sync_ti_feeds tasks" as STASK
+  }
+
+  node "celery-beat container\n(Celery Beat scheduler)" as BEATNODE {
+    component "Beat Schedule\n02:00 MalwareBazaar\n02:30 URLhaus\n10s Gmail poll" as BEAT
+  }
+
+  database "postgres container\n(PostgreSQL 15)" as PGNODE {
+    component "15 Django models\n4 apps" as PGDB
+  }
+
+  database "redis container\n(Redis 7)" as REDNODE {
+    component "Celery broker\nTask queue" as REDIS
+  }
+}
+
+cloud "External Services" {
+  component "Gmail API\n(Google Cloud)" as GMAIL
+  component "MalwareBazaar\n(abuse.ch)" as MB
+  component "URLhaus\n(abuse.ch)" as UH
+}
+
+node "Client Browser" {
+  component "IT Manager\nDashboard" as BROWSER
+}
+
+BROWSER --> DJANGO : HTTP :8000\n(GET/POST)
+DJANGO --> PGDB : ORM queries
+DJANGO --> REDIS : Celery task dispatch
+ATASK --> PGDB : read/write Email + Analysis
+FTASK --> GMAIL : OAuth2 / Gmail API v1
+STASK --> MB : daily CSV download
+STASK --> UH : daily CSV download
+BEAT --> REDIS : scheduled tasks
+CELNODE --> REDIS : consume tasks
+CELNODE --> PGDB : write results
+
+note bottom of DJNODE
+  Port 8000 exposed to host.
+  All other containers internal only.
+  Secrets via .env file.
+end note
+@enduml

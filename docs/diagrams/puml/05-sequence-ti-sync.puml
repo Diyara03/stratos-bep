@@ -1,0 +1,46 @@
+@startuml 05-sequence-ti-sync
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #16A34A
+  ParticipantBackgroundColor #F8FAFC
+  ParticipantBorderColor #E2E8F0
+  NoteBackgroundColor #DCFCE7
+  NoteBorderColor #16A34A
+}
+title Threat Intelligence Sync — Daily Automated Process
+
+participant "Celery Beat\nScheduler" as BEAT
+participant "sync_malwarebazaar\n_task" as MB_TASK
+participant "sync_urlhaus\n_task" as UH_TASK
+participant "MalwareBazaar\n(abuse.ch)" as MB_API
+participant "URLhaus\n(abuse.ch)" as UH_API
+database "PostgreSQL\nMaliciousHash\nMaliciousDomain" as DB
+participant "Stratos\nDashboard" as UI
+
+== Daily at 02:00 UTC ==
+BEAT -> MB_TASK : trigger (crontab hour=2 minute=0)
+MB_TASK -> MB_API : GET /export/csv/recent/
+note right: No auth required\nPublic feed
+MB_API --> MB_TASK : CSV (sha256, md5, signature, file_type)
+MB_TASK -> MB_TASK : Parse CSV\nSkip comment lines (#)\nValidate sha256 = 64 chars
+loop For each valid row
+  MB_TASK -> DB : MaliciousHash.objects.update_or_create(\nsha256_hash=row.sha256,\nmalware_family=row.signature)
+end
+MB_TASK -> MB_TASK : Print "N new, M updated, K skipped"
+
+== Daily at 02:30 UTC ==
+BEAT -> UH_TASK : trigger (crontab hour=2 minute=30)
+UH_TASK -> UH_API : GET /downloads/csv_recent/
+UH_API --> UH_TASK : CSV (url, url_status, threat, dateadded)
+UH_TASK -> UH_TASK : Filter: url_status == 'online' only\nExtract domain from URL
+loop For each online URL
+  UH_TASK -> DB : MaliciousDomain.objects.update_or_create(\ndomain=parsed_domain,\ncategory=threat)
+end
+UH_TASK -> UH_TASK : Print "N new, M updated, K skipped"
+
+== Dashboard Reflects Update ==
+UI -> DB : MaliciousHash.objects.count()
+UI -> DB : MaliciousDomain.objects.count()
+DB --> UI : Updated counts
+UI -> UI : TI stats footer refreshed
+@enduml

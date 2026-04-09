@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}IOCs - Stratos BEP{% endblock %}
+{% block page_title %}Indicators of Compromise{% endblock %}
+
+{% block content %}
+<!-- Header with Export -->
+<div class="flex justify-between items-center mb-16">
+  <div class="text-secondary text-sm">
+    {% if page_obj %}{{ page_obj.paginator.count }} IOC{{ page_obj.paginator.count|pluralize }} found{% endif %}
+  </div>
+  {% if can_export %}
+  <a href="{% url 'reports:ioc-export' %}" class="btn btn--primary">Export IOCs (CSV)</a>
+  {% endif %}
+</div>
+
+<!-- Filter Bar -->
+<div class="card mb-24">
+  <form method="GET" action="{% url 'ui:ioc-list' %}" class="filter-bar">
+    <div class="filter-group">
+      <label for="filter-ioc-type">IOC Type</label>
+      <select name="ioc_type" id="filter-ioc-type">
+        <option value="">All</option>
+        <option value="HASH" {% if filters.ioc_type == 'HASH' %}selected{% endif %}>Hash</option>
+        <option value="URL" {% if filters.ioc_type == 'URL' %}selected{% endif %}>URL</option>
+        <option value="IP" {% if filters.ioc_type == 'IP' %}selected{% endif %}>IP</option>
+        <option value="DOMAIN" {% if filters.ioc_type == 'DOMAIN' %}selected{% endif %}>Domain</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-severity">Severity</label>
+      <select name="severity" id="filter-severity">
+        <option value="">All</option>
+        <option value="CRITICAL" {% if filters.severity == 'CRITICAL' %}selected{% endif %}>Critical</option>
+        <option value="HIGH" {% if filters.severity == 'HIGH' %}selected{% endif %}>High</option>
+        <option value="MEDIUM" {% if filters.severity == 'MEDIUM' %}selected{% endif %}>Medium</option>
+        <option value="LOW" {% if filters.severity == 'LOW' %}selected{% endif %}>Low</option>
+      </select>
+    </div>
+
+    <div class="filter-group" style="justify-content: flex-end;">
+      <label>&nbsp;</label>
+      <div class="flex gap-8">
+        <button type="submit" class="btn btn--primary">Apply</button>
+        <a href="{% url 'ui:ioc-list' %}" class="btn btn--link">Reset</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- IOC Table -->
+<div class="card">
+  {% if page_obj %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Value</th>
+          <th>Severity</th>
+          <th>Source</th>
+          <th>Email</th>
+          <th>First Seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ioc in page_obj %}
+        <tr>
+          <td>
+            {% if ioc.ioc_type == 'HASH' %}
+              <span class="badge badge--role">HASH</span>
+            {% elif ioc.ioc_type == 'URL' %}
+              <span class="badge badge--suspicious">URL</span>
+            {% elif ioc.ioc_type == 'IP' %}
+              <span class="badge badge--malicious">IP</span>
+            {% elif ioc.ioc_type == 'DOMAIN' %}
+              <span class="badge badge--clean">DOMAIN</span>
+            {% else %}
+              <span class="badge badge--low">{{ ioc.ioc_type }}</span>
+            {% endif %}
+          </td>
+          <td class="td-mono td-truncate" style="max-width: 400px;">{{ ioc.value }}</td>
+          <td>
+            {% if ioc.severity == 'CRITICAL' %}
+              <span class="badge badge--critical">CRITICAL</span>
+            {% elif ioc.severity == 'HIGH' %}
+              <span class="badge badge--high">HIGH</span>
+            {% elif ioc.severity == 'MEDIUM' %}
+              <span class="badge badge--medium">MEDIUM</span>
+            {% else %}
+              <span class="badge badge--low">LOW</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-secondary">{{ ioc.source_checker|default:"-" }}</td>
+          <td class="td-truncate" style="max-width: 200px;">
+            <a href="{% url 'ui:email-detail' ioc.email.pk %}">{{ ioc.email.subject|truncatechars:40 }}</a>
+          </td>
+          <td class="td-muted text-sm">{{ ioc.first_seen|timesince }} ago</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="pagination">
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <div class="pagination__links">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if filters.ioc_type %}&ioc_type={{ filters.ioc_type }}{% endif %}{% if filters.severity %}&severity={{ filters.severity }}{% endif %}">Previous</a>
+      {% endif %}
+      <span class="pagination__current">{{ page_obj.number }}</span>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if filters.ioc_type %}&ioc_type={{ filters.ioc_type }}{% endif %}{% if filters.severity %}&severity={{ filters.severity }}{% endif %}">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <p class="empty-state">No indicators of compromise found.</p>
+  {% endif %}
+</div>
+{% endblock %}

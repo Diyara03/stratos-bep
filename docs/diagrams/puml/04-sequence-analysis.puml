@@ -1,0 +1,92 @@
+@startuml 04-sequence-analysis
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #2563EB
+  ActorBackgroundColor #EFF6FF
+  ActorBorderColor #2563EB
+  ParticipantBackgroundColor #F8FAFC
+  ParticipantBorderColor #E2E8F0
+  LifeLineBorderColor #CBD5E1
+  NoteBackgroundColor #FEF9EE
+  NoteBorderColor #D97706
+}
+
+title Stratos — Email Analysis Sequence
+
+actor "Gmail API" as GMAIL
+participant "fetch_gmail_task\n(Celery)" as FETCH
+participant "EmailParser" as PARSER
+database "PostgreSQL" as DB
+participant "analyze_email_task\n(Celery)" as TASK
+participant "Preprocessor" as PRE
+participant "Checker" as CHK
+participant "Decider" as DEC
+participant "Dashboard\n(IT Manager)" as UI
+
+== Email Ingestion ==
+GMAIL -> FETCH : New message available
+FETCH -> GMAIL : get_message(gmail_id)
+GMAIL --> FETCH : raw message dict
+FETCH -> PARSER : parse_gmail_message(raw)
+PARSER -> PARSER : extract headers, body,\nURLs, attachments, auth
+PARSER --> FETCH : Email instance + attachment dicts
+FETCH -> DB : Email.objects.create(status=PENDING)
+FETCH -> DB : EmailAttachment.objects.bulk_create()
+FETCH -> TASK : analyze_email_task.delay(email_id)
+
+== Preprocessing ==
+TASK -> DB : Email.objects.get(id)
+TASK -> DB : email.status = ANALYZING
+TASK -> PRE : process(email)
+PRE -> DB : WhitelistEntry lookup
+alt Sender whitelisted
+  PRE --> TASK : verdict_override = CLEAN
+  TASK -> DB : email.status = DELIVERED\nemail.verdict = CLEAN
+  TASK -> DB : AnalysisResult.create(preprocess only)
+  note over TASK : Pipeline ends early\nfor whitelisted senders
+else Not whitelisted
+  PRE -> DB : BlacklistEntry lookup
+  PRE -> PRE : Parse Authentication-Results\nSPF/DKIM/DMARC scoring
+  PRE -> PRE : Check Reply-To mismatch\nCheck display name spoof
+  PRE --> TASK : PreprocessResult(score, findings)
+end
+
+== Detection ==
+TASK -> CHK : check_all(email)
+CHK -> CHK : _check_keywords()\n24 keywords, +2 each, max +20
+CHK -> DB : MaliciousDomain.objects.filter()
+CHK -> CHK : _check_urls() max +40
+CHK -> DB : MaliciousHash.objects.filter()
+CHK -> CHK : _check_attachments() max +50
+CHK -> DB : YaraRule.objects.filter(is_active=True)
+CHK -> CHK : _check_received_chain() max +15
+CHK --> TASK : CheckResult(scores, findings, has_known_malware)
+
+== Verdict ==
+TASK -> DEC : decide(preprocess_result, check_result)
+alt has_known_malware == True
+  DEC --> TASK : MALICIOUS / BLOCK / score=100\n(override regardless of total)
+else Normal scoring
+  DEC -> DEC : total = min(pre_score + check_score, 100)
+  alt total >= 70
+    DEC --> TASK : MALICIOUS / BLOCK
+  else total >= 25
+    DEC --> TASK : SUSPICIOUS / QUARANTINE
+  else total < 25
+    DEC --> TASK : CLEAN / DELIVER
+  end
+end
+
+== Storage and Action ==
+TASK -> DB : email.verdict, score, confidence, status
+TASK -> DB : AnalysisResult.update(all scores)
+alt QUARANTINE or BLOCK
+  TASK -> DB : QuarantineEntry.create()
+  TASK -> DB : ExtractedIOC.create() for each IOC
+end
+
+== Dashboard Update ==
+UI -> DB : GET /api/dashboard/stats/ (every 30s)
+DB --> UI : {malicious: N, suspicious: M, quarantine_pending: K}
+UI -> UI : Update stat cards and alerts table
+@enduml

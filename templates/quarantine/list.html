@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Quarantine - Stratos BEP{% endblock %}
+{% block page_title %}Quarantine{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="card mb-24">
+  <form method="GET" action="{% url 'ui:quarantine-list' %}" class="filter-bar">
+    <div class="filter-group">
+      <label for="filter-status">Status</label>
+      <select name="status" id="filter-status">
+        <option value="">All</option>
+        <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+        <option value="RELEASED" {% if status_filter == 'RELEASED' %}selected{% endif %}>Released</option>
+        <option value="BLOCKED" {% if status_filter == 'BLOCKED' %}selected{% endif %}>Blocked</option>
+        <option value="DELETED" {% if status_filter == 'DELETED' %}selected{% endif %}>Deleted</option>
+      </select>
+    </div>
+
+    <div class="filter-group" style="justify-content: flex-end;">
+      <label>&nbsp;</label>
+      <button type="submit" class="btn btn--primary">Apply</button>
+    </div>
+  </form>
+</div>
+
+<!-- Quarantine Table -->
+<div class="card">
+  {% if page_obj %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>From</th>
+          <th>Verdict</th>
+          <th>Score</th>
+          <th>Status</th>
+          <th>Quarantined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in page_obj %}
+        <tr>
+          <td class="td-truncate">
+            <a href="{% url 'ui:email-detail' entry.email.pk %}">{{ entry.email.subject|truncatechars:50 }}</a>
+          </td>
+          <td class="td-truncate" style="max-width: 200px;">{{ entry.email.from_address }}</td>
+          <td>
+            {% if entry.email.verdict == 'CLEAN' %}
+              <span class="badge badge--clean">CLEAN</span>
+            {% elif entry.email.verdict == 'SUSPICIOUS' %}
+              <span class="badge badge--suspicious">SUSPICIOUS</span>
+            {% elif entry.email.verdict == 'MALICIOUS' %}
+              <span class="badge badge--malicious">MALICIOUS</span>
+            {% else %}
+              <span class="badge badge--low">--</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="score-display">
+              <span class="score-number">{{ entry.email.score|default:"--" }}</span>
+              {% if entry.email.score is not None %}
+              <div class="score-bar" data-score="{{ entry.email.score }}"></div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-sm">{{ entry.status }}</td>
+          <td class="td-muted text-sm">{{ entry.created_at|timesince }} ago</td>
+          <td>
+            {% if can_act and entry.status == 'PENDING' %}
+            <div class="action-group">
+              <form method="POST" action="{% url 'ui:quarantine-action' entry.pk %}" class="action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="release">
+                <button type="submit" class="btn btn--success btn--sm">Release</button>
+              </form>
+              <form method="POST" action="{% url 'ui:quarantine-action' entry.pk %}" class="action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="block">
+                <button type="submit" class="btn btn--danger btn--sm">Block</button>
+              </form>
+              <form method="POST" action="{% url 'ui:quarantine-action' entry.pk %}" class="action-form" data-confirm="Permanently delete this email and all related data?">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="btn btn--danger-outline btn--sm">Delete</button>
+              </form>
+            </div>
+            {% elif entry.status != 'PENDING' %}
+            <span class="text-sm text-muted">
+              Reviewed by {{ entry.reviewer|default:"--" }}
+              {% if entry.reviewed_at %}
+              <br>{{ entry.reviewed_at|timesince }} ago
+              {% endif %}
+            </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="pagination">
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <div class="pagination__links">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a>
+      {% endif %}
+      <span class="pagination__current">{{ page_obj.number }}</span>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <p class="empty-state">No quarantine entries found</p>
+  {% endif %}
+</div>
+{% endblock %}

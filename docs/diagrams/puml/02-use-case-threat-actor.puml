@@ -1,0 +1,68 @@
+@startuml 02-use-case-threat-actor
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #FFF7ED
+  BorderColor #EA580C
+  FontColor #1E293B
+}
+left to right direction
+
+actor "External\nAttacker" as ATK #FEE2E2
+actor "Phishing\nOperator" as PHI #FEE2E2
+actor "Malware\nDistributor" as MAL #FEE2E2
+actor "BEC Actor\n(Impersonator)" as BEC #FEE2E2
+
+package "Attack Vectors Stratos Detects" {
+  usecase "Send phishing email\nwith keyword triggers" as T1
+  usecase "Spoof sender domain\n(SPF/DKIM/DMARC fail)" as T2
+  usecase "Attach malware file\n(known hash)" as T3
+  usecase "Include malicious URL\n(URLhaus match)" as T4
+  usecase "Use double extension\n(.pdf.exe)" as T5
+  usecase "Impersonate executive\n(display name spoof)" as T6
+  usecase "Mismatch Reply-To\nand From domain" as T7
+  usecase "Use LOLBin delivery\n(certutil, mshta)" as T8
+  usecase "Route via open relay\n(chain anomaly)" as T9
+  usecase "Use URL shortener\nto hide destination" as T10
+}
+
+package "Stratos Detection Response" {
+  usecase "Keyword scoring\n(+2 per match, max +20)" as D1
+  usecase "Auth check scoring\n(SPF/DKIM/DMARC +5 to +15)" as D2
+  usecase "Hash matching\n(MalwareBazaar, +50)" as D3
+  usecase "URL reputation check\n(URLhaus, +30)" as D4
+  usecase "Extension analysis\n(+15 dangerous, +20 double)" as D5
+  usecase "BEC signal detection\n(display spoof +10)" as D6
+  usecase "Reply-To mismatch\n(+10)" as D7
+  usecase "Chain anomaly\n(+5 per flag)" as D8
+  usecase "Verdict: QUARANTINE\nor BLOCK" as D9
+}
+
+ATK --> T1
+ATK --> T2
+PHI --> T3
+PHI --> T4
+PHI --> T5
+MAL --> T3
+MAL --> T8
+BEC --> T6
+BEC --> T7
+
+T1 ..> D1 : triggers
+T2 ..> D2 : triggers
+T3 ..> D3 : triggers
+T4 ..> D4 : triggers
+T5 ..> D5 : triggers
+T6 ..> D6 : triggers
+T7 ..> D7 : triggers
+T9 ..> D8 : triggers
+T10 ..> D4 : triggers
+
+D1 ..> D9 : contributes score
+D2 ..> D9 : contributes score
+D3 ..> D9 : overrides to MALICIOUS
+D4 ..> D9 : contributes score
+D5 ..> D9 : contributes score
+D6 ..> D9 : contributes score
+D7 ..> D9 : contributes score
+D8 ..> D9 : contributes score
+@enduml

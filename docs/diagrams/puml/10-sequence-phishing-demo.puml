@@ -1,0 +1,83 @@
+@startuml 10-sequence-phishing-demo
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #DC2626
+  ParticipantBackgroundColor #F8FAFC
+  ParticipantBorderColor #E2E8F0
+  NoteBackgroundColor #FEE2E2
+  NoteBorderColor #DC2626
+}
+title Demo Scenario — Phishing Email Detection
+
+actor "Attacker" as ATK #FEE2E2
+participant "Gmail Inbox\n(Protected)" as INBOX
+participant "GmailConnector\n(Celery task)" as FETCH
+participant "EmailParser" as PARSER
+participant "Preprocessor" as PRE
+participant "Checker" as CHK
+participant "Decider" as DEC
+database "PostgreSQL" as DB
+participant "IT Manager\nDashboard" as UI
+
+ATK -> INBOX : Send phishing email:\nFrom: attacker@ministry-of-justice.uz.phishing-demo.xyz\nSubject: "Urgent: Verify your identity - account suspended"\nBody: contains 4 phishing keywords\nAuth: SPF=fail DKIM=fail DMARC=fail
+
+FETCH -> INBOX : poll every 10s
+INBOX --> FETCH : new message
+FETCH -> PARSER : parse_gmail_message()
+PARSER -> PARSER : extract headers, body, auth results
+note right of PARSER
+  from_address: attacker@...phishing-demo.xyz
+  reply_to: different_domain@collect.ru
+  urls_extracted: []
+  Authentication-Results: spf=fail dkim=fail dmarc=fail
+end note
+PARSER --> FETCH : Email instance
+FETCH -> DB : Email saved (status=PENDING)
+
+FETCH -> PRE : process(email)
+note right of PRE
+  SPF fail: +15
+  DKIM fail: +15
+  DMARC fail: +15
+  Reply-To mismatch: +10
+  Display name spoof: +10
+  Preprocess score: 65
+end note
+PRE --> FETCH : PreprocessResult(score=65)
+
+FETCH -> CHK : check_all(email)
+note right of CHK
+  Keywords matched (4):
+  "verify your identity" +2
+  "urgent action required" +2
+  "suspended account" +2
+  "click here immediately" +2
+  Keyword score: 8
+  Total check score: 8
+end note
+CHK --> FETCH : CheckResult(keyword_score=8, total=8)
+
+FETCH -> DEC : decide(pre=65, check=8)
+DEC -> DEC : total = min(65+8, 100) = 73
+note right of DEC
+  73 >= 70 threshold
+  verdict = MALICIOUS
+  action = BLOCK
+  confidence = MEDIUM
+end note
+DEC --> FETCH : MALICIOUS / BLOCK / score=73
+
+FETCH -> DB : email.verdict=MALICIOUS\nemail.score=73\nemail.status=BLOCKED
+FETCH -> DB : AnalysisResult.create(all scores)
+FETCH -> DB : QuarantineEntry.create(status=PENDING)
+
+UI -> DB : GET /api/dashboard/stats/
+DB --> UI : {malicious: 1, quarantine_pending: 1}
+UI -> UI : Red alert badge appears\non Malicious stat card
+note right of UI
+  IT Manager sees:
+  MALICIOUS count = 1
+  Quarantine pending = 1
+  "Investigate" link
+end note
+@enduml

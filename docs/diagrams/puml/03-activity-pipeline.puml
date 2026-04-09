@@ -1,0 +1,107 @@
+@startuml 03-activity-pipeline
+skinparam backgroundColor #FFFFFF
+skinparam activity {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E293B
+  DiamondBackgroundColor #FEF3C7
+  DiamondBorderColor #D97706
+}
+skinparam arrow {
+  Color #64748B
+}
+
+start
+
+:Gmail API polls inbox every 10s;
+:Fetch new messages (skip known gmail_id);
+
+if (New emails found?) then (yes)
+  :EmailParser.parse_gmail_message();
+  note right
+    Extracts: headers, body,
+    URLs, attachments,
+    auth results, received chain
+  end note
+  :Save Email record (status=PENDING);
+  :Dispatch analyze_email_task via Celery;
+else (no)
+  stop
+endif
+
+:EmailAnalyzer.analyze(email_id);
+:email.status = ANALYZING;
+
+:Preprocessor.process(email);
+
+if (Sender in Whitelist?) then (yes)
+  :verdict_override = CLEAN;
+  :email.status = DELIVERED;
+  :Create AnalysisResult;
+  stop
+else (no)
+endif
+
+:Check Blacklist;
+note right: +40 email match\n+30 domain match
+
+:Parse Authentication-Results header;
+note right
+  SPF: pass=0 softfail=+5 fail=+15 none=+10
+  DKIM: pass=0 fail=+15 none=+5
+  DMARC: pass=0 fail=+15 none=+5
+end note
+
+:Check Reply-To mismatch (+10);
+:Check Display name spoof (+10);
+:PreprocessResult.score = sum;
+
+:Checker.check_all(email);
+
+fork
+  :Keyword checker;
+  note right: 24 keywords\n+2 each, max +20
+fork again
+  :URL checker;
+  note right: MaliciousDomain +30\nIP-URL +10\nShortener +5\nmax +40
+fork again
+  :Attachment checker;
+  note right: MaliciousHash +50\nDangerous ext +15\nDouble ext +20\nmax +50
+fork again
+  :Chain checker;
+  note right: Hops>7 +5\nPrivate IP +5\nTimestamps +5\nmax +15
+end fork
+
+:CheckResult.total_check_score = sum of all;
+
+:Decider.decide(preprocess, check);
+
+if (has_known_malware == True?) then (yes)
+  :verdict = MALICIOUS\nscore = 100\naction = BLOCK;
+else (no)
+  :total_score = preprocess + check (capped at 100);
+
+  if (score >= 70?) then (yes)
+    :verdict = MALICIOUS\naction = BLOCK;
+  elseif (score >= 25?) then (yes)
+    :verdict = SUSPICIOUS\naction = QUARANTINE;
+  else (no)
+    :verdict = CLEAN\naction = DELIVER;
+  endif
+endif
+
+:_finalize(email, verdict, score);
+:Save Email.verdict, score, confidence, status;
+:Create/update AnalysisResult;
+
+if (action == QUARANTINE or BLOCK?) then (yes)
+  :Create QuarantineEntry;
+  :Create ExtractedIOC records;
+else (no)
+endif
+
+:email.status = DELIVERED/QUARANTINED/BLOCKED;
+:Pipeline complete;
+
+stop
+@enduml

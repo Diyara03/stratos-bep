@@ -1,0 +1,55 @@
+@startuml 06-activity-quarantine
+skinparam backgroundColor #FFFFFF
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #2563EB
+  DiamondBackgroundColor #FEF3C7
+  DiamondBorderColor #D97706
+}
+title Quarantine Management Workflow
+
+start
+:Email verdict = SUSPICIOUS or MALICIOUS;
+:QuarantineEntry created (status=PENDING);
+:Analyst/Admin notified via dashboard badge;
+
+:IT Manager reviews quarantine queue;
+
+if (Analyst or Admin role?) then (yes)
+  if (Review decision?) then (Release)
+    :POST /quarantine/<id>/action/ release;
+    :email.status = DELIVERED;
+    :quarantine.status = RELEASED;
+    :quarantine.reviewer = current user;
+    :quarantine.reviewed_at = now();
+    :Flash: "Email released to inbox";
+  elseif (decision) then (Block Sender)
+    :POST /quarantine/<id>/action/ block;
+    :BlacklistEntry.create(type=EMAIL, value=from_address);
+    :email.status = BLOCKED;
+    :quarantine.status = BLOCKED;
+    :Flash: "Sender blocked permanently";
+    note right
+      Future emails from this
+      sender score +40 immediately
+    end note
+  elseif (decision) then (Delete)
+    :POST /quarantine/<id>/action/ delete;
+    :Email.delete() — permanent, cascades to\nanalysis, attachments, IOCs;
+    :Flash: "Email permanently deleted";
+  elseif (decision) then (Whitelist)
+    :WhitelistEntry.create(type=EMAIL, value=from_address);
+    :Flash: "Sender whitelisted — future emails bypass analysis";
+    note right
+      Future emails from sender
+      receive verdict_override=CLEAN
+      in Preprocessor immediately
+    end note
+  endif
+else (Viewer — read only)
+  :Can view quarantine but no actions;
+  stop
+endif
+
+stop
+@enduml

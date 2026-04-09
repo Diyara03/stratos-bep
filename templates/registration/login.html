@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - Stratos BEP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/stratos.css' %}">
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo__icon">
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22 4L38 36H6L22 4Z" fill="#2563EB" opacity="0.15"/>
+          <path d="M22 10L34 34H10L22 10Z" fill="#2563EB"/>
+        </svg>
+      </div>
+      <div class="login-logo__title">Stratos</div>
+      <div class="login-logo__sub">Email Protection</div>
+    </div>
+
+    <h2 class="login-heading">Sign In</h2>
+
+    {% if form.errors %}
+    <div class="login-error">
+      Invalid username or password. Please try again.
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="form-group">
+        <label for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" autofocus required placeholder="Enter your username">
+      </div>
+
+      <div class="form-group">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" required placeholder="Enter your password">
+      </div>
+
+      <button type="submit" class="btn btn--primary login-btn">Sign In</button>
+    </form>
+  </div>
+</body>
+</html>

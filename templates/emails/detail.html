@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}{{ email.subject|truncatechars:50 }} - Stratos BEP{% endblock %}
+{% block page_title %}Email Detail{% endblock %}
+
+{% block content %}
+<!-- Header Card -->
+<div class="card mb-24">
+  <div class="detail-header">
+    <div class="detail-header__left">
+      {% if email.verdict == 'CLEAN' %}
+        <span class="badge badge--clean">CLEAN</span>
+      {% elif email.verdict == 'SUSPICIOUS' %}
+        <span class="badge badge--suspicious">SUSPICIOUS</span>
+      {% elif email.verdict == 'MALICIOUS' %}
+        <span class="badge badge--malicious">MALICIOUS</span>
+      {% else %}
+        <span class="badge badge--low">PENDING</span>
+      {% endif %}
+
+      <h2 class="detail-header__subject">{{ email.subject }}</h2>
+
+      <div class="detail-header__meta">
+        <div><strong>From:</strong> {{ email.from_display_name }} &lt;{{ email.from_address }}&gt;</div>
+        <div><strong>To:</strong> {{ email.to_addresses|join:", " }}</div>
+        {% if email.cc_addresses %}
+        <div><strong>Cc:</strong> {{ email.cc_addresses|join:", " }}</div>
+        {% endif %}
+        {% if email.reply_to %}
+        <div><strong>Reply-To:</strong> {{ email.reply_to }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="detail-header__right">
+      {% if email.score is not None %}
+      <div class="score-number--large" style="color: {% if email.score < 25 %}#16A34A{% elif email.score < 70 %}#D97706{% else %}#DC2626{% endif %};">
+        {{ email.score }}
+      </div>
+      <div class="score-bar" data-score="{{ email.score }}" style="width: 120px; margin-top: 8px;"></div>
+      {% endif %}
+      {% if email.confidence %}
+      <div style="margin-top: 8px;">
+        <span class="badge badge--{% if email.confidence == 'HIGH' %}high{% elif email.confidence == 'MEDIUM' %}medium{% else %}low{% endif %}">{{ email.confidence }} confidence</span>
+      </div>
+      {% endif %}
+      <div class="detail-header__status">
+        {{ email.status }} &middot; {{ email.received_at|timesince }} ago
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="card">
+  <div class="tab-nav">
+    <button class="tab-btn tab-btn--active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="headers">Headers</button>
+    <button class="tab-btn" data-tab="urls">URLs</button>
+    <button class="tab-btn" data-tab="attachments">Attachments</button>
+    {% if can_view_raw %}
+    <button class="tab-btn" data-tab="raw">Raw Analysis</button>
+    {% endif %}
+  </div>
+
+  <!-- Overview Tab -->
+  <div class="tab-panel tab-panel--active" data-tab="overview">
+    {% if email.analysis %}
+    <h3 class="card__title mb-16">Score Breakdown</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Score</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="font-semibold">Preprocessor</td>
+            <td>{{ email.analysis.preprocess_score }}</td>
+            <td>
+              <span class="badge badge--{{ email.analysis.spf_result }}">SPF {{ email.analysis.spf_result }}</span>
+              <span class="badge badge--{{ email.analysis.dkim_result }}">DKIM {{ email.analysis.dkim_result }}</span>
+              <span class="badge badge--{{ email.analysis.dmarc_result }}">DMARC {{ email.analysis.dmarc_result }}</span>
+              {% if email.analysis.is_reply_to_mismatch %}
+                <span class="badge badge--suspicious" style="margin-left: 4px;">Reply-To mismatch</span>
+              {% endif %}
+              {% if email.analysis.is_display_spoof %}
+                <span class="badge badge--malicious" style="margin-left: 4px;">Display name spoof</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="font-semibold">Keywords</td>
+            <td>{{ email.analysis.keyword_score }}</td>
+            <td>
+              {% if email.analysis.keywords_matched %}
+                Matched: {{ email.analysis.keywords_matched|join:", " }}
+              {% else %}
+                <span class="text-muted">No matches</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="font-semibold">URLs</td>
+            <td>{{ email.analysis.url_score }}</td>
+            <td>
+              {% if email.analysis.url_findings %}
+                {{ email.analysis.url_findings|length }} finding{{ email.analysis.url_findings|length|pluralize }}
+              {% else %}
+                <span class="text-muted">No findings</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="font-semibold">Attachments</td>
+            <td>{{ email.analysis.attachment_score }}</td>
+            <td>
+              {% if email.analysis.attachment_findings %}
+                {{ email.analysis.attachment_findings|length }} finding{{ email.analysis.attachment_findings|length|pluralize }}
+              {% else %}
+                <span class="text-muted">No findings</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="font-semibold">Chain Analysis</td>
+            <td>{{ email.analysis.chain_score }}</td>
+            <td class="text-muted">--</td>
+          </tr>
+          <tr style="background: var(--bg-page);">
+            <td class="font-semibold"><strong>Total</strong></td>
+            <td><strong>{{ email.analysis.total_score }}</strong></td>
+            <td class="text-secondary text-sm">
+              Pipeline: {{ email.analysis.pipeline_duration_ms|default:"--" }}ms
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">Analysis not available</p>
+    {% endif %}
+  </div>
+
+  <!-- Headers Tab -->
+  <div class="tab-panel" data-tab="headers">
+    {% if email.headers_raw %}
+    <dl class="dl-headers">
+      {% for key, value in email.headers_raw.items %}
+      <dt>{{ key }}</dt>
+      <dd>{{ value }}</dd>
+      {% endfor %}
+    </dl>
+
+    {% if email.received_chain %}
+    <h3 class="card__title mt-24 mb-8">Received Chain</h3>
+    <ol style="padding-left: 20px; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--text-primary);">
+      {% for hop in email.received_chain %}
+      <li style="margin-bottom: 8px; word-break: break-all;">{{ hop }}</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+    {% else %}
+    <p class="empty-state">No headers available</p>
+    {% endif %}
+  </div>
+
+  <!-- URLs Tab -->
+  <div class="tab-panel" data-tab="urls">
+    {% if email.analysis and email.analysis.url_findings %}
+    <h3 class="card__title mb-16">URL Findings</h3>
+    <div class="table-wrap mb-24">
+      <table>
+        <thead>
+          <tr>
+            <th>URL</th>
+            <th>Domain</th>
+            <th>Score</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for finding in email.analysis.url_findings %}
+          <tr>
+            <td class="td-truncate td-mono" style="max-width: 320px;">{{ finding.url|default:"--" }}</td>
+            <td>{{ finding.domain|default:"--" }}</td>
+            <td>{{ finding.score|default:"--" }}</td>
+            <td class="text-sm text-secondary">{{ finding.source|default:"--" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if email.urls_extracted %}
+    <h3 class="card__title mb-16">Extracted URLs</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>URL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for url in email.urls_extracted %}
+          <tr>
+            <td class="td-mono" style="word-break: break-all;">{{ url }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if not email.analysis.url_findings and not email.urls_extracted %}
+    <p class="empty-state">No URLs found in this email</p>
+    {% endif %}
+  </div>
+
+  <!-- Attachments Tab -->
+  <div class="tab-panel" data-tab="attachments">
+    {% if email.attachments.all %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>SHA256</th>
+            <th>Flags</th>
+            <th>YARA</th>
+            <th>TI Match</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for att in email.attachments.all %}
+          <tr>
+            <td class="font-semibold">{{ att.filename }}</td>
+            <td class="text-sm">{{ att.content_type }}</td>
+            <td class="text-sm td-muted">{{ att.size_bytes|filesizeformat }}</td>
+            <td class="td-mono text-sm">{{ att.sha256_hash|truncatechars:19 }}</td>
+            <td>
+              {% if att.is_dangerous_ext %}
+                <span class="badge badge--malicious">Dangerous ext</span>
+              {% endif %}
+              {% if att.is_double_ext %}
+                <span class="badge badge--malicious">Double ext</span>
+              {% endif %}
+              {% if att.is_mime_mismatch %}
+                <span class="badge badge--suspicious">MIME mismatch</span>
+              {% endif %}
+            </td>
+            <td class="text-sm">
+              {% if att.yara_matches %}
+                {% for match in att.yara_matches %}
+                  <span class="badge badge--malicious">{{ match }}</span>
+                {% endfor %}
+              {% else %}
+                <span class="text-muted">None</span>
+              {% endif %}
+            </td>
+            <td class="text-sm">
+              {% if att.ti_match %}
+                <span class="badge badge--malicious">{{ att.ti_match }}</span>
+              {% else %}
+                <span class="text-muted">None</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No attachments in this email</p>
+    {% endif %}
+  </div>
+
+  <!-- Raw Analysis Tab -->
+  {% if can_view_raw %}
+  <div class="tab-panel" data-tab="raw">
+    {% if analysis_json %}
+    <pre class="text-mono">{{ analysis_json }}</pre>
+    {% else %}
+    <p class="empty-state">No raw analysis data available</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

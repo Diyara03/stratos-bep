@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Threat Intel - Stratos BEP{% endblock %}
+{% block page_title %}Threat Intelligence{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div>
+      <div class="stat-card__label">Malware Hashes</div>
+      <div class="stat-card__value">{{ hash_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card__icon" style="background: #DBEAFE;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 11.08V8l-6-6H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h6"></path>
+        <path d="M14 3v5h5"></path>
+        <circle cx="19" cy="17" r="3"></circle>
+        <path d="M21.3 19.3L23 21"></path>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-card" style="border-left-color: #D97706;">
+    <div>
+      <div class="stat-card__label">Malicious Domains</div>
+      <div class="stat-card__value">{{ domain_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card__icon" style="background: #FEF3C7;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-card stat-card--malicious">
+    <div>
+      <div class="stat-card__label">Malicious IPs</div>
+      <div class="stat-card__value">{{ ip_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card__icon" style="background: #FEE2E2;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+        <line x1="6" y1="6" x2="6.01" y2="6"></line>
+        <line x1="6" y1="18" x2="6.01" y2="18"></line>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-card stat-card--clean">
+    <div>
+      <div class="stat-card__label">Active YARA Rules</div>
+      <div class="stat-card__value">{{ yara_active_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card__icon" style="background: #DCFCE7;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"></polyline>
+        <polyline points="8 6 2 12 8 18"></polyline>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- Feed Status -->
+<div class="card mb-24">
+  <div class="card__title">Feed Status</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Feed</th>
+          <th>Description</th>
+          <th>Records</th>
+          <th>Last Sync</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for feed in feeds %}
+        <tr>
+          <td class="font-semibold">{{ feed.name }}</td>
+          <td class="text-secondary">{{ feed.description }}</td>
+          <td>{{ feed.count|default:"0" }}</td>
+          <td class="td-muted text-sm">
+            {% if feed.last_sync %}
+              {{ feed.last_sync|timesince }} ago
+            {% else %}
+              Never
+            {% endif %}
+          </td>
+          <td>
+            {% if feed.last_sync %}
+              <span class="badge badge--clean">Synced</span>
+            {% else %}
+              <span class="badge badge--low">No data</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="empty-state">No feeds configured</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_admin %}
+  <div class="mt-16">
+    <form method="POST" action="{% url 'ti:sync' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--primary" data-confirm="Trigger threat intelligence sync?">Sync Now</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Whitelist & Blacklist (Admin only) -->
+{% if is_admin %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="mb-24">
+  <!-- Whitelist -->
+  <div class="card">
+    <div class="card__title flex items-center gap-8">
+      Whitelist
+      <span class="badge badge--clean">{{ whitelist_entries|length }}</span>
+    </div>
+    <form method="POST" action="{% url 'ti:whitelist-add' %}" class="mb-16">
+      {% csrf_token %}
+      <div class="flex gap-8 items-center" style="flex-wrap: wrap;">
+        <select name="entry_type" style="min-width: 100px;">
+          <option value="EMAIL">Email</option>
+          <option value="DOMAIN">Domain</option>
+          <option value="IP">IP</option>
+        </select>
+        <input type="text" name="value" placeholder="Value" required style="flex: 1; min-width: 120px;">
+        <input type="text" name="reason" placeholder="Reason" style="flex: 1; min-width: 100px;">
+        <button type="submit" class="btn btn--success btn--sm">Add</button>
+      </div>
+    </form>
+    {% if whitelist_entries %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Value</th>
+            <th>Reason</th>
+            <th>Added By</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in whitelist_entries %}
+          <tr>
+            <td><span class="badge badge--clean">{{ entry.entry_type }}</span></td>
+            <td class="td-mono">{{ entry.value }}</td>
+            <td class="text-secondary text-sm">{{ entry.reason|default:"-" }}</td>
+            <td class="text-sm">{{ entry.added_by|default:"-" }}</td>
+            <td class="td-muted text-sm">{{ entry.created_at|timesince }} ago</td>
+            <td>
+              <form method="POST" action="{% url 'ti:whitelist-remove' entry.pk %}" class="action-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--danger btn--sm" data-confirm="Remove this whitelist entry?">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No whitelist entries</p>
+    {% endif %}
+  </div>
+
+  <!-- Blacklist -->
+  <div class="card">
+    <div class="card__title flex items-center gap-8">
+      Blacklist
+      <span class="badge badge--malicious">{{ blacklist_entries|length }}</span>
+    </div>
+    <form method="POST" action="{% url 'ti:blacklist-add' %}" class="mb-16">
+      {% csrf_token %}
+      <div class="flex gap-8 items-center" style="flex-wrap: wrap;">
+        <select name="entry_type" style="min-width: 100px;">
+          <option value="EMAIL">Email</option>
+          <option value="DOMAIN">Domain</option>
+          <option value="IP">IP</option>
+        </select>
+        <input type="text" name="value" placeholder="Value" required style="flex: 1; min-width: 120px;">
+        <input type="text" name="reason" placeholder="Reason" style="flex: 1; min-width: 100px;">
+        <button type="submit" class="btn btn--danger btn--sm">Add</button>
+      </div>
+    </form>
+    {% if blacklist_entries %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Value</th>
+            <th>Reason</th>
+            <th>Added By</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in blacklist_entries %}
+          <tr>
+            <td><span class="badge badge--malicious">{{ entry.entry_type }}</span></td>
+            <td class="td-mono">{{ entry.value }}</td>
+            <td class="text-secondary text-sm">{{ entry.reason|default:"-" }}</td>
+            <td class="text-sm">{{ entry.added_by|default:"-" }}</td>
+            <td class="td-muted text-sm">{{ entry.created_at|timesince }} ago</td>
+            <td>
+              <form method="POST" action="{% url 'ti:blacklist-remove' entry.pk %}" class="action-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--danger btn--sm" data-confirm="Remove this blacklist entry?">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-state">No blacklist entries</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Recent IOC Detections -->
+<div class="card">
+  <div class="card__title">Recent IOC Detections</div>
+  {% if recent_iocs %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Value</th>
+          <th>Severity</th>
+          <th>Source Email</th>
+          <th>First Seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ioc in recent_iocs %}
+        <tr>
+          <td>
+            {% if ioc.ioc_type == 'HASH' %}
+              <span class="badge badge--role">HASH</span>
+            {% elif ioc.ioc_type == 'URL' %}
+              <span class="badge badge--suspicious">URL</span>
+            {% elif ioc.ioc_type == 'IP' %}
+              <span class="badge badge--malicious">IP</span>
+            {% elif ioc.ioc_type == 'DOMAIN' %}
+              <span class="badge badge--clean">DOMAIN</span>
+            {% else %}
+              <span class="badge badge--low">{{ ioc.ioc_type }}</span>
+            {% endif %}
+          </td>
+          <td class="td-mono td-truncate">{{ ioc.value }}</td>
+          <td>
+            {% if ioc.severity == 'CRITICAL' %}
+              <span class="badge badge--critical">CRITICAL</span>
+            {% elif ioc.severity == 'HIGH' %}
+              <span class="badge badge--high">HIGH</span>
+            {% elif ioc.severity == 'MEDIUM' %}
+              <span class="badge badge--medium">MEDIUM</span>
+            {% else %}
+              <span class="badge badge--low">LOW</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'ui:email-detail' ioc.email.pk %}">{{ ioc.email.subject|truncatechars:40 }}</a>
+          </td>
+          <td class="td-muted text-sm">{{ ioc.first_seen|timesince }} ago</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No IOC detections recorded yet</p>
+  {% endif %}
+</div>
+{% endblock %}

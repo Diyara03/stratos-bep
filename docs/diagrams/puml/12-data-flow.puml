@@ -1,0 +1,79 @@
+@startuml 12-data-flow
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam roundcorner 10
+
+skinparam rectangle {
+  FontColor #1E293B
+}
+
+skinparam database {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+  FontColor #1E293B
+}
+
+skinparam storage {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E293B
+}
+
+skinparam cloud {
+  BackgroundColor #FFF7ED
+  BorderColor #EA580C
+}
+
+title Stratos BEP -- Data Flow Diagram
+
+' === External entities ===
+cloud "Protected\nMailbox" as MAILBOX
+actor "IT Manager /\nAnalyst / Viewer" as USER
+cloud "abuse.ch\nTI Feeds" as FEEDS
+
+' === Processes ===
+storage "1. Email Ingestion\nGmailConnector\nEmailParser" as P1
+storage "2. Preprocessor\nSPF/DKIM/DMARC\nWhitelist/Blacklist" as P2
+storage "3. Checker\nKeywords | URLs\nAttachments | Chain" as P3
+storage "4. Decider\nScore aggregation\nVerdict assignment" as P4
+storage "5. Quarantine\nManagement" as P5
+storage "6. Dashboard\n& Reports" as P6
+storage "7. TI Sync\nCelery Beat" as P7
+
+' === Data stores ===
+database "Email Store\nEmail | Attachment\nAnalysisResult" as D1
+database "Quarantine\nQuarantineEntry\nExtractedIOC" as D2
+database "Threat Intel\nMaliciousHash\nMaliciousDomain\nYaraRule" as D3
+database "White/Blacklist" as D4
+database "Reports" as D5
+
+' === Flows: Ingestion ===
+MAILBOX -right-> P1 : raw email\n[Gmail API]
+P1 -down-> D1 : parsed email\n+ attachments
+P1 -right-> P2 : email record
+
+' === Flows: Analysis pipeline ===
+P2 <-down-> D4 : lookup
+P2 -right-> P3 : PreprocessResult\nscore + auth flags
+P3 <-down-> D3 : TI lookup
+P3 -right-> P4 : CheckResult\nall scores
+P4 -down-> D1 : verdict | score\nstatus
+P4 -down-> D2 : QuarantineEntry\nExtractedIOC
+
+' === Flows: TI Sync ===
+FEEDS -right-> P7 : CSV feeds\ndaily
+P7 -down-> D3 : upsert\nTI records
+
+' === Flows: User interactions ===
+USER -down-> P5 : release / block\ndelete / whitelist
+P5 -down-> D2 : update status
+P5 -down-> D4 : add entry
+
+USER -down-> P6 : view / export
+P6 -down-> D1 : queries
+P6 -down-> D2 : queries
+P6 -down-> D3 : queries
+P6 -down-> D5 : report record
+P6 -up-> USER : dashboard\nCSV / JSON
+
+@enduml

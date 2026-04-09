@@ -1,0 +1,91 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+pip-wheel-metadata/
+
+# --- Virtual environments ---
+venv/
+venv310/
+venv312/
+env/
+.venv/
+ENV/
+
+# --- Django ---
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# --- Secrets (NEVER commit these) ---
+.env
+.env.*
+!.env.example
+GITHUB_SETUP.env
+credentials/
+credentials.json
+token.json
+gmail_credentials.json
+gmail_token.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# --- Coverage ---
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# --- Testing ---
+.pytest_cache/
+.tox/
+nosetests.xml
+test-results/
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Claude Code ---
+.claude/
+.playwright-mcp/
+
+# --- Report drafts (not for public repo) ---
+docs/report/
+docs/coverage_report/
+*.docx
+*.xlsx
+*.pptx
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+
+# --- Docker volumes ---
+postgres_data/
+
+# --- OS ---
+Desktop.ini
+
+# --- Temp files ---
+*.tmp
+*.bak
+plantuml.jar

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Emails - Stratos BEP{% endblock %}
+{% block page_title %}Emails{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="card mb-24">
+  <form method="GET" action="{% url 'ui:email-list' %}" class="filter-bar">
+    <div class="filter-group">
+      <label for="filter-verdict">Verdict</label>
+      <select name="verdict" id="filter-verdict">
+        <option value="">All</option>
+        <option value="CLEAN" {% if filters.verdict == 'CLEAN' %}selected{% endif %}>Clean</option>
+        <option value="SUSPICIOUS" {% if filters.verdict == 'SUSPICIOUS' %}selected{% endif %}>Suspicious</option>
+        <option value="MALICIOUS" {% if filters.verdict == 'MALICIOUS' %}selected{% endif %}>Malicious</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-status">Status</label>
+      <select name="status" id="filter-status">
+        <option value="">All</option>
+        <option value="PENDING" {% if filters.status == 'PENDING' %}selected{% endif %}>Pending</option>
+        <option value="ANALYZING" {% if filters.status == 'ANALYZING' %}selected{% endif %}>Analyzing</option>
+        <option value="DELIVERED" {% if filters.status == 'DELIVERED' %}selected{% endif %}>Delivered</option>
+        <option value="QUARANTINED" {% if filters.status == 'QUARANTINED' %}selected{% endif %}>Quarantined</option>
+        <option value="BLOCKED" {% if filters.status == 'BLOCKED' %}selected{% endif %}>Blocked</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-from">From</label>
+      <input type="text" name="from_address" id="filter-from" value="{{ filters.from_address|default:'' }}" placeholder="sender@example.com">
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-date-from">Date From</label>
+      <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from|default:'' }}">
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-date-to">Date To</label>
+      <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to|default:'' }}">
+    </div>
+
+    <div class="filter-group" style="justify-content: flex-end;">
+      <label>&nbsp;</label>
+      <div class="flex gap-8">
+        <button type="submit" class="btn btn--primary">Apply</button>
+        <a href="{% url 'ui:email-list' %}" class="btn btn--link">Reset</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Email Table -->
+<div class="card">
+  {% if page_obj %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>From</th>
+          <th>Subject</th>
+          <th>Verdict</th>
+          <th>Score</th>
+          <th>Status</th>
+          <th>Received</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for email in page_obj %}
+        <tr>
+          <td class="td-muted">{{ email.pk }}</td>
+          <td class="td-truncate" style="max-width: 200px;">{{ email.from_address }}</td>
+          <td class="td-truncate">
+            <a href="{% url 'ui:email-detail' email.pk %}">{{ email.subject|truncatechars:60 }}</a>
+          </td>
+          <td>
+            {% if email.verdict == 'CLEAN' %}
+              <span class="badge badge--clean">CLEAN</span>
+            {% elif email.verdict == 'SUSPICIOUS' %}
+              <span class="badge badge--suspicious">SUSPICIOUS</span>
+            {% elif email.verdict == 'MALICIOUS' %}
+              <span class="badge badge--malicious">MALICIOUS</span>
+            {% else %}
+              <span class="badge badge--low">--</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="score-display">
+              <span class="score-number">{{ email.score|default:"--" }}</span>
+              {% if email.score is not None %}
+              <div class="score-bar" data-score="{{ email.score }}"></div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-sm">{{ email.status }}</td>
+          <td class="td-muted text-sm">{{ email.received_at|timesince }} ago</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="pagination">
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <div class="pagination__links">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if filters.verdict %}&verdict={{ filters.verdict }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.from_address %}&from_address={{ filters.from_address }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}">Previous</a>
+      {% endif %}
+      <span class="pagination__current">{{ page_obj.number }}</span>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if filters.verdict %}&verdict={{ filters.verdict }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.from_address %}&from_address={{ filters.from_address }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <p class="empty-state">No emails found</p>
+  {% endif %}
+</div>
+{% endblock %}

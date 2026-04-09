@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Stratos BEP{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div>
+      <div class="stat-card__label">Total Emails</div>
+      <div class="stat-card__value">{{ stats.total_emails|default:"0" }}</div>
+    </div>
+    <div class="stat-card__icon" style="background: #DBEAFE;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+        <path d="M22 7l-10 7L2 7"></path>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-card stat-card--clean">
+    <div>
+      <div class="stat-card__label">Clean</div>
+      <div class="stat-card__value">{{ stats.clean_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card__icon" style="background: #DCFCE7;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"></path>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-card stat-card--suspicious">
+    <div>
+      <div class="stat-card__label">Suspicious</div>
+      <div class="stat-card__value">
+        {{ stats.suspicious_count|default:"0" }}
+        {% if stats.suspicious_count and stats.suspicious_count > 0 %}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        {% endif %}
+      </div>
+    </div>
+    <div class="stat-card__icon" style="background: #FEF3C7;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-card stat-card--malicious">
+    <div>
+      <div class="stat-card__label">Malicious</div>
+      <div class="stat-card__value">
+        {{ stats.malicious_count|default:"0" }}
+        {% if stats.malicious_count and stats.malicious_count > 0 %}
+        <span class="pulse-dot"></span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="stat-card__icon" style="background: #FEE2E2;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Alerts -->
+<div class="card mb-24">
+  <div class="card__title">Recent Alerts</div>
+  {% if recent_alerts %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>From</th>
+          <th>Subject</th>
+          <th>Verdict</th>
+          <th>Score</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alert in recent_alerts %}
+        <tr>
+          <td class="td-muted text-sm">{{ alert.received_at|timesince }} ago</td>
+          <td class="td-truncate">{{ alert.from_address }}</td>
+          <td class="td-truncate">
+            <a href="{% url 'ui:email-detail' alert.pk %}">{{ alert.subject }}</a>
+          </td>
+          <td>
+            {% if alert.verdict == 'CLEAN' %}
+              <span class="badge badge--clean">CLEAN</span>
+            {% elif alert.verdict == 'SUSPICIOUS' %}
+              <span class="badge badge--suspicious">SUSPICIOUS</span>
+            {% elif alert.verdict == 'MALICIOUS' %}
+              <span class="badge badge--malicious">MALICIOUS</span>
+            {% else %}
+              <span class="badge badge--low">PENDING</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="score-display">
+              <span class="score-number">{{ alert.score|default:"--" }}</span>
+            </div>
+          </td>
+          <td>
+            <a href="{% url 'ui:email-detail' alert.pk %}" class="btn btn--secondary btn--sm">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No recent alerts</p>
+  {% endif %}
+</div>
+
+<!-- TI Stats -->
+<div class="card">
+  <div class="card__title">Threat Intelligence Overview</div>
+  <div class="inline-stats">
+    <div class="inline-stat">
+      <span class="inline-stat__value">{{ stats.ti_hashes|default:"0" }}</span>
+      <span class="inline-stat__label">Malicious Hashes</span>
+    </div>
+    <div class="inline-stat">
+      <span class="inline-stat__value">{{ stats.ti_domains|default:"0" }}</span>
+      <span class="inline-stat__label">Malicious Domains</span>
+    </div>
+    <div class="inline-stat">
+      <span class="inline-stat__value">{{ stats.quarantine_pending|default:"0" }}</span>
+      <span class="inline-stat__label">Pending Quarantine</span>
+    </div>
+    <div class="inline-stat">
+      <span class="inline-stat__value text-sm" style="font-size: 0.875rem;">{{ stats.last_sync|default:"Never" }}</span>
+      <span class="inline-stat__label">Last TI Sync</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+@startuml 01-use-case
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E293B
+}
+skinparam actor {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #E2E8F0
+}
+left to right direction
+
+actor "IT Security Manager\n(Admin)" as Admin
+actor "Security Analyst\n(Analyst)" as Analyst
+actor "Department Head\n(Viewer)" as Viewer
+actor "Gmail API\n(External)" as Gmail
+actor "abuse.ch\n(MalwareBazaar/URLhaus)" as TI
+
+package "Email Monitoring" {
+  usecase "View dashboard statistics" as UC1
+  usecase "View email list and filters" as UC2
+  usecase "View email detail and analysis" as UC3
+  usecase "View score breakdown" as UC4
+}
+
+package "Quarantine Management" {
+  usecase "View quarantine queue" as UC5
+  usecase "Release email to inbox" as UC6
+  usecase "Block sender permanently" as UC7
+  usecase "Delete email permanently" as UC8
+  usecase "Add sender to whitelist" as UC9
+}
+
+package "Threat Intelligence" {
+  usecase "View TI statistics" as UC10
+  usecase "Sync TI feeds manually" as UC11
+  usecase "Manage whitelist entries" as UC12
+  usecase "Manage blacklist entries" as UC13
+  usecase "View IOC browser" as UC14
+}
+
+package "Reports and Export" {
+  usecase "Export email summary CSV" as UC15
+  usecase "Export IOC list CSV" as UC16
+  usecase "Export TI stats JSON" as UC17
+  usecase "View report history" as UC18
+}
+
+package "User Administration" {
+  usecase "Create user accounts" as UC19
+  usecase "Assign user roles" as UC20
+  usecase "Deactivate users" as UC21
+}
+
+package "Automated Processing" {
+  usecase "Fetch emails from Gmail" as UC22
+  usecase "Analyse email pipeline" as UC23
+  usecase "Sync threat intelligence" as UC24
+}
+
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+Admin --> UC11
+Admin --> UC12
+Admin --> UC13
+Admin --> UC14
+Admin --> UC15
+Admin --> UC16
+Admin --> UC17
+Admin --> UC18
+Admin --> UC19
+Admin --> UC20
+Admin --> UC21
+
+Analyst --> UC1
+Analyst --> UC2
+Analyst --> UC3
+Analyst --> UC4
+Analyst --> UC5
+Analyst --> UC6
+Analyst --> UC8
+Analyst --> UC10
+Analyst --> UC14
+Analyst --> UC15
+Analyst --> UC16
+Analyst --> UC18
+
+Viewer --> UC1
+Viewer --> UC2
+Viewer --> UC3
+Viewer --> UC18
+
+Gmail --> UC22
+TI --> UC24
+
+UC22 ..> UC23 : triggers
+UC23 ..> UC5 : if SUSPICIOUS/MALICIOUS
+@enduml

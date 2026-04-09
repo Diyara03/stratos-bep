@@ -1,0 +1,45 @@
+@startuml 11-system-context
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam roundcorner 15
+
+skinparam rectangle {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E293B
+  StereotypeFontColor #64748B
+}
+
+skinparam actor {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+}
+
+skinparam cloud {
+  BackgroundColor #FFF7ED
+  BorderColor #EA580C
+}
+
+title Stratos BEP -- System Context Diagram (C4 Level 1)
+
+actor "IT Security Manager\n(Admin role)" as ADMIN
+actor "Security Analyst\n(Analyst role)" as ANALYST
+actor "Department Head\n(Viewer role)" as VIEWER
+
+rectangle "**Stratos BEP System**\n\nDjango 4.2 | PostgreSQL 15 | Redis | Docker\n\nWeb Dashboard + REST API + Analysis Engine" as STRATOS #EFF6FF
+
+cloud "Gmail API\nGoogle Cloud\nOAuth2 email source" as GMAIL
+cloud "MalwareBazaar\nabuse.ch\nHash feed -- daily" as MB
+cloud "URLhaus\nabuse.ch\nURL feed -- daily" as UH
+cloud "VirusTotal API\nOptional\n4 req/min" as VT
+
+ADMIN -down-> STRATOS : Manages system,\nsyncs TI, creates users\n[Browser HTTPS]
+ANALYST -down-> STRATOS : Reviews quarantine,\nexports reports\n[Browser HTTPS]
+VIEWER -down-> STRATOS : Views dashboard\n[Browser HTTPS]
+
+STRATOS -down-> GMAIL : Polls new emails\nevery 10 seconds\n[Gmail API v1]
+STRATOS -down-> MB : Downloads CSV\ndaily 02:00\n[HTTPS]
+STRATOS -down-> UH : Downloads CSV\ndaily 02:30\n[HTTPS]
+STRATOS -down-> VT : Hash + URL check\noptional\n[REST API]
+
+@enduml

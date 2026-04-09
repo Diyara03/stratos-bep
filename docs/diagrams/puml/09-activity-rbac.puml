@@ -1,0 +1,67 @@
+@startuml 09-activity-rbac
+skinparam backgroundColor #FFFFFF
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #2563EB
+  DiamondBackgroundColor #DBEAFE
+  DiamondBorderColor #2563EB
+}
+title Role-Based Access Control Flow
+
+start
+:User visits Stratos URL;
+
+if (Authenticated?) then (no)
+  :Redirect to /accounts/login/;
+  :Enter username + password;
+  :Django authenticate();
+  if (Valid credentials?) then (yes)
+    :Login successful;
+    :Redirect to /;
+  else (no)
+    :Show error message;
+    stop
+  endif
+else (yes)
+endif
+
+:Load user.role from database;
+
+if (Accessing /users/ or /threat-intel/sync/?) then (yes)
+  if (role == ADMIN?) then (yes)
+    :Grant access;
+  else (no)
+    :Return 403 Forbidden;
+    stop
+  endif
+endif
+
+if (Accessing quarantine actions\n(release/block/delete)?) then (yes)
+  if (role in ADMIN or ANALYST?) then (yes)
+    :Grant access;
+  else (no)
+    :Return 403 Forbidden;
+    stop
+  endif
+endif
+
+if (Accessing /reports/export/?) then (yes)
+  if (role in ADMIN or ANALYST?) then (yes)
+    :Stream CSV/JSON response;
+    :Create Report record;
+  else (no)
+    :Return 403 Forbidden;
+    stop
+  endif
+endif
+
+:Render page with role-aware template;
+note right
+  Admin: full sidebar including ADMIN section
+  Analyst: MONITOR + SECURITY + REPORTS
+  Viewer: MONITOR + REPORTS (read only)
+end note
+
+:User performs action;
+stop
+@enduml

@@ -1,0 +1,14 @@
+django==4.2.13
+djangorestframework==3.14.0
+psycopg2-binary==2.9.9
+redis==5.0.1
+celery==5.3.6
+google-api-python-client==2.111.0
+google-auth-oauthlib==1.2.0
+python-magic-bin==0.4.14
+yara-python==4.3.1
+requests==2.31.0
+Pillow==10.2.0
+coverage==7.4.0
+python-dotenv==1.0.0
+beautifulsoup4==4.12.3

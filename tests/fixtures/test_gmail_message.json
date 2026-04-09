@@ -1,0 +1,53 @@
+{
+  "id": "test_gmail_id_001",
+  "threadId": "thread_001",
+  "labelIds": ["INBOX", "UNREAD"],
+  "snippet": "Please find the quarterly report attached.",
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      {"name": "From", "value": "John Doe <john.doe@example.com>"},
+      {"name": "To", "value": "analyst@stratos-bep.com"},
+      {"name": "Subject", "value": "Quarterly Report Q4 2025"},
+      {"name": "Date", "value": "Mon, 6 Jan 2026 10:30:00 +0000"},
+      {"name": "Message-ID", "value": "<msg-001@example.com>"},
+      {"name": "Authentication-Results", "value": "mx.google.com; spf=pass smtp.mailfrom=example.com; dkim=pass header.d=example.com; dmarc=pass header.from=example.com"},
+      {"name": "Received", "value": "from mail-out.example.com (mail-out.example.com [203.0.113.10]) by mx.google.com with ESMTPS; Mon, 6 Jan 2026 10:29:58 +0000"},
+      {"name": "Received", "value": "from internal-smtp.example.com (internal-smtp.example.com [10.0.0.5]) by mail-out.example.com with ESMTP; Mon, 6 Jan 2026 10:29:55 +0000"}
+    ],
+    "body": {"size": 0},
+    "parts": [
+      {
+        "mimeType": "multipart/alternative",
+        "body": {"size": 0},
+        "parts": [
+          {
+            "mimeType": "text/plain",
+            "body": {
+              "size": 85,
+              "data": "UGxlYXNlIGZpbmQgdGhlIHF1YXJ0ZXJseSByZXBvcnQgYXR0YWNoZWQuIFZpc2l0IGh0dHBzOi8vZXhhbXBsZS5jb20vcmVwb3J0cyBmb3IgbW9yZSBkZXRhaWxzLg=="
+            }
+          },
+          {
+            "mimeType": "text/html",
+            "body": {
+              "size": 160,
+              "data": "PGh0bWw-PGJvZHk-PHA-UGxlYXNlIGZpbmQgdGhlIHF1YXJ0ZXJseSByZXBvcnQgYXR0YWNoZWQuIFZpc2l0IDxhIGhyZWY9Imh0dHBzOi8vZXhhbXBsZS5jb20vcmVwb3J0cyI-UmVwb3J0czwvYT4gZm9yIG1vcmUgZGV0YWlscy4gPGEgaHJlZj0iaHR0cHM6Ly9leGFtcGxlLmNvbS9kYXNoYm9hcmQiPkRhc2hib2FyZDwvYT48L3A-PC9ib2R5PjwvaHRtbD4="
+            }
+          }
+        ]
+      },
+      {
+        "mimeType": "application/pdf",
+        "filename": "test.pdf",
+        "body": {
+          "size": 1024,
+          "data": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSA-PgplbmRvYmoKeHJlZgowIDQKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDQgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjIwNgolJUVPRg=="
+        }
+      }
+    ]
+  },
+  "sizeEstimate": 2048,
+  "historyId": "12345",
+  "internalDate": "1736159400000"
+}

@@ -1,0 +1,55 @@
+{
+  "id": "test_gmail_id_002",
+  "threadId": "thread_002",
+  "labelIds": ["INBOX", "UNREAD"],
+  "snippet": "Dear user, please verify your account immediately.",
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      {"name": "From", "value": "Security Team <attacker@suspicious-domain.xyz>"},
+      {"name": "To", "value": "victim@stratos-bep.com"},
+      {"name": "Subject", "value": "Urgent: Verify your account immediately"},
+      {"name": "Date", "value": "Tue, 7 Jan 2026 08:15:00 +0000"},
+      {"name": "Message-ID", "value": "<phish-001@suspicious-domain.xyz>"},
+      {"name": "Reply-To", "value": "different-reply@evil.com"},
+      {"name": "Authentication-Results", "value": "mx.google.com; spf=fail smtp.mailfrom=suspicious-domain.xyz; dkim=fail header.d=suspicious-domain.xyz; dmarc=fail header.from=suspicious-domain.xyz"},
+      {"name": "Received", "value": "from unknown-relay.xyz (unknown-relay.xyz [198.51.100.50]) by mx.google.com with ESMTP; Tue, 7 Jan 2026 08:14:58 +0000"},
+      {"name": "Received", "value": "from phish-server.evil.com (phish-server.evil.com [192.0.2.100]) by unknown-relay.xyz with SMTP; Tue, 7 Jan 2026 08:14:55 +0000"},
+      {"name": "Received", "value": "from localhost (localhost [127.0.0.1]) by phish-server.evil.com with ESMTP; Tue, 7 Jan 2026 08:14:50 +0000"}
+    ],
+    "body": {"size": 0},
+    "parts": [
+      {
+        "mimeType": "multipart/alternative",
+        "body": {"size": 0},
+        "parts": [
+          {
+            "mimeType": "text/plain",
+            "body": {
+              "size": 280,
+              "data": "RGVhciB1c2VyLAoKV2UgaGF2ZSBkZXRlY3RlZCB1bnVzdWFsIGFjdGl2aXR5IG9uIHlvdXIgYWNjb3VudC4gWW91IG11c3QgdmVyaWZ5IHlvdXIgYWNjb3VudCBpbW1lZGlhdGVseS4gVGhpcyBpcyBhbiB1cmdlbnQgYWN0aW9uIHJlcXVpcmVkIG5vdGljZS4KClBsZWFzZSBjbGljayBoZXJlIGltbWVkaWF0ZWx5IHRvIHNlY3VyZSB5b3VyIGFjY291bnQ6IGh0dHBzOi8vZXZpbC1waGlzaGluZy5leGFtcGxlLmNvbS9zdGVhbC1jcmVkcwoKWW91ciBhY2NvdW50IHdpbGwgYmUgY2xvc2VkIGlmIHlvdSBkbyBub3QgYWN0IG5vdy4="
+            }
+          },
+          {
+            "mimeType": "text/html",
+            "body": {
+              "size": 350,
+              "data": "PGh0bWw-PGJvZHk-PHA-RGVhciB1c2VyLDwvcD48cD5XZSBoYXZlIGRldGVjdGVkIHVudXN1YWwgYWN0aXZpdHkgb24geW91ciBhY2NvdW50LiBZb3UgbXVzdCA8Yj52ZXJpZnkgeW91ciBhY2NvdW50PC9iPiBpbW1lZGlhdGVseS4gVGhpcyBpcyBhbiA8Yj51cmdlbnQgYWN0aW9uIHJlcXVpcmVkPC9iPiBub3RpY2UuPC9wPjxwPlBsZWFzZSA8YSBocmVmPSJodHRwczovL2V2aWwtcGhpc2hpbmcuZXhhbXBsZS5jb20vc3RlYWwtY3JlZHMiPmNsaWNrIGhlcmUgaW1tZWRpYXRlbHk8L2E-IHRvIHNlY3VyZSB5b3VyIGFjY291bnQuPC9wPjwvYm9keT48L2h0bWw-"
+            }
+          }
+        ]
+      },
+      {
+        "mimeType": "application/octet-stream",
+        "filename": "invoice.pdf.exe",
+        "body": {
+          "size": 2048,
+          "data": "TVqQAAMAAAAEAAAA__8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAA4fug4AtAnNIbgBTM0hVGhpcyBwcm9ncmFtIGNhbm5vdCBiZSBydW4gaW4gRE9TIG1vZGUuDQ0KJAAAAAAAAABQRQAATAECAAAAAAAAAAAAAAAA4AACAQsBCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAQAAAAAgAABAAAAAAAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        }
+      }
+    ]
+  },
+  "sizeEstimate": 4096,
+  "historyId": "12346",
+  "internalDate": "1736237700000"
+}
