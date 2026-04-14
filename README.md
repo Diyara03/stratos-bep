@@ -10,19 +10,21 @@ Stratos is a multi-layered Business Email Protection (BEP) platform that analyse
 
 | Feature | Detail |
 |---|---|
-| **Email ingestion** | Gmail API connector, polls every 10 seconds |
+| **Email ingestion** | Gmail API connector with browser-based OAuth setup |
 | **Preprocessing** | SPF / DKIM / DMARC scoring, whitelist/blacklist |
 | **Keyword detection** | 24 phishing keywords, +2 points each, max +20 |
-| **URL analysis** | URLhaus feed lookup, IP-based URL detection, shortener detection |
+| **URL analysis** | URLhaus + VirusTotal lookup, IP-based URL detection, shortener detection |
 | **Attachment scanning** | SHA-256 vs MalwareBazaar, 13 dangerous extensions, double-extension, MIME mismatch |
 | **YARA scanning** | 6 custom rules: VBA macro, PE executable, JS obfuscation, double extension, OLE, ransomware |
 | **Received chain** | Hop count anomaly, private IP in public chain, timestamp disorder |
 | **Threat intelligence** | MalwareBazaar + URLhaus daily sync via Celery Beat |
-| **Verdict engine** | Score 0-100, CLEAN <25, SUSPICIOUS 25-69, MALICIOUS >=70 |
-| **Dashboard** | 9 pages, light theme, role-based access (Admin / Analyst / Viewer) |
+| **Verdict engine** | Score 0-100, configurable thresholds (default: CLEAN <25, SUSPICIOUS 25-69, MALICIOUS >=70) |
+| **Dashboard** | 10 pages, light theme, role-based access (Admin / Analyst / Viewer) |
+| **System Settings** | ADMIN-only UI for Gmail OAuth, API keys (encrypted), detection thresholds |
 | **REST API** | 5 endpoints, DRF, Session + Token authentication |
 | **Export** | CSV email summary, IOC export, JSON TI stats |
-| **Testing** | 351 tests, 82% full coverage, 95%+ on core pipeline |
+| **Testing** | 473 tests, 95%+ coverage on core pipeline |
+| **Production ready** | Docker Compose + Caddy reverse proxy + gunicorn |
 
 ---
 
@@ -42,7 +44,7 @@ Email --> PARSE --> PREPROCESS --> CHECK --> DECIDE --> ACT
 | 2 | **Checker** | +125 | Keywords (max +20), URLs (max +40), Attachments (max +50), Chain (max +15) |
 | 3 | **Decider** | - | Aggregates scores, applies thresholds, known malware override |
 
-### Verdict Thresholds
+### Verdict Thresholds (configurable via Settings UI)
 
 | Score | Verdict | Action |
 |-------|---------|--------|
@@ -56,41 +58,39 @@ Email --> PARSE --> PREPROCESS --> CHECK --> DECIDE --> ACT
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Python 3.12, Django 4.2, Django REST Framework |
+| Backend | Python 3.10+, Django 4.2, Django REST Framework |
 | Database | PostgreSQL 15 |
 | Task Queue | Redis 7 + Celery 5.3 |
-| Email Source | Gmail API (OAuth2) |
-| TI Feeds | MalwareBazaar, URLhaus (abuse.ch) |
+| Email Source | Gmail API (OAuth2 web flow) |
+| TI Feeds | MalwareBazaar, URLhaus, VirusTotal, AbuseIPDB |
 | Detection | yara-python, python-magic |
 | Frontend | Django templates, vanilla JS, Inter font |
-| Deployment | Docker Compose (5 containers) |
+| Deployment | Docker Compose (6 containers: django, postgres, redis, celery, celery-beat, caddy) |
+| Security | Fernet-encrypted API keys, RBAC, whitenoise, gunicorn |
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.10+
-- PostgreSQL 15+ (or use Docker)
-- Redis 7+ (or use Docker)
-- Google Cloud project with Gmail API enabled
-
-### Setup
+### Option A: Docker (recommended)
 
 ```bash
-# Clone
-git clone https://github.com/Stratos/stratos-bep.git
+git clone https://github.com/Diyara03/stratos-bep.git
 cd stratos-bep
 
-# Environment
 cp .env.example .env
-# Edit .env with your values
+# Edit .env: set SECRET_KEY, POSTGRES_PASSWORD, ALLOWED_HOSTS
 
-# Option A: Docker (recommended)
+# Development
 docker compose up -d
 
-# Option B: Local
+# Production (with Caddy reverse proxy + gunicorn)
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Option B: Local Development
+
+```bash
 python -m venv venv
 source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
@@ -107,6 +107,50 @@ python manage.py runserver
 | analyst | analyst123 | Analyst (review + export) |
 | viewer | viewer123 | Viewer (read only) |
 
+Run `python manage.py demo_setup` to create these users and 10 sample emails.
+
+---
+
+## Deployment (Hetzner Cloud)
+
+Full step-by-step guide: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+
+```bash
+# On the server (Ubuntu 22.04)
+apt update && apt upgrade -y
+curl -fsSL https://get.docker.com | sh
+apt install -y docker-compose-plugin
+
+cd /opt
+git clone https://github.com/Diyara03/stratos-bep.git stratos
+cd stratos
+
+cp .env.example .env
+nano .env  # Set SECRET_KEY, POSTGRES_PASSWORD, ALLOWED_HOSTS
+
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml exec django python manage.py createsuperuser
+```
+
+Access at `http://YOUR_SERVER_IP`. Configure Gmail and API keys via **Settings** (Admin > Settings).
+
+---
+
+## System Settings (ADMIN only)
+
+After deployment, configure integrations through the browser — no SSH needed:
+
+| Setting | How |
+|---------|-----|
+| **Gmail** | Upload OAuth credentials JSON, click "Connect Gmail Account", authorize via Google |
+| **VirusTotal** | Paste API key, click Test, Save |
+| **AbuseIPDB** | Paste API key, click Test, Save |
+| **Thresholds** | Adjust Clean/Malicious sliders, Save |
+| **Fetch interval** | Set polling frequency (default: 10s) |
+| **TI sync** | Toggle daily MalwareBazaar + URLhaus import |
+
+API keys are encrypted at rest (Fernet AES-128-CBC). Full guide: [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md)
+
 ---
 
 ## Project Structure
@@ -114,7 +158,7 @@ python manage.py runserver
 ```
 stratos-bep/
   accounts/          # User model with RBAC (Admin/Analyst/Viewer)
-  emails/            # Core app: models, services, views
+  emails/            # Core app: models, services, views, settings
     services/
       preprocessor.py  # SPF/DKIM/DMARC + whitelist/blacklist
       checker.py       # Keywords, URLs, attachments, chain
@@ -122,17 +166,20 @@ stratos-bep/
       analyzer.py      # Pipeline orchestrator
       parser.py        # Gmail message parser
       gmail_connector.py
+    settings_views.py  # System configuration UI
     management/commands/
       demo_setup.py    # Create demo scenario
       demo_teardown.py # Clean demo data
   threat_intel/      # TI models + sync tasks
   reports/           # Export + report models
   stratos_server/    # Django project settings
-  templates/         # 10 HTML templates (light theme)
-  static/            # CSS + JS
-  tests/             # 351 tests across 15 files
-  docs/              # Architecture, diagrams, screenshots
+  templates/         # 11 HTML templates (light theme)
+  static/            # CSS + JS + favicon
+  tests/             # 473 tests across 19 files
+  docs/              # Architecture, deployment, admin guide, playbook
   docker-compose.yml
+  docker-compose.prod.yml
+  Caddyfile
 ```
 
 ---
@@ -141,18 +188,16 @@ stratos-bep/
 
 | Metric | Value |
 |--------|-------|
-| Django models | 15 across 4 apps |
-| Migrations | 26 |
-| Tests | 351 (all passing) |
-| Coverage (full) | 82% (1,863 statements) |
-| Coverage (core) | 95%+ (analyzer 100%, decider 100%) |
-| UI pages | 9 |
+| Django models | 16 across 4 apps |
+| Tests | 473 (all passing) |
+| Coverage (core) | 95%+ |
+| UI pages | 10 |
 | API endpoints | 5 |
+| Settings endpoints | 10 |
 | Phishing keywords | 24 |
 | YARA rules | 6 |
 | Dangerous extensions | 13 |
-| UML diagrams | 13 |
-| Screenshots | 20 |
+| Docker services | 6 (prod) |
 
 ---
 
@@ -160,10 +205,11 @@ stratos-bep/
 
 | Page | Screenshot |
 |------|-----------|
-| Dashboard | ![Dashboard](docs/screenshots/14-dashboard-with-data.png) |
-| Email Detail | ![Email Detail](docs/screenshots/15-email-detail-malicious.png) |
-| Quarantine | ![Quarantine](docs/screenshots/17-quarantine-pending.png) |
-| Threat Intel | ![Threat Intel](docs/screenshots/18-threat-intel-stats.png) |
+| Dashboard | ![Dashboard](docs/playbook_screenshots/02_dashboard.png) |
+| Email Detail | ![Email Detail](docs/playbook_screenshots/05_email_detail_malicious.png) |
+| Quarantine | ![Quarantine](docs/playbook_screenshots/07_quarantine.png) |
+| Threat Intel | ![Threat Intel](docs/playbook_screenshots/09_threat_intel.png) |
+| Settings | ![Settings](docs/playbook_screenshots/12_settings.png) |
 
 ---
 
@@ -190,6 +236,19 @@ python manage.py fetch_emails        # Manual Gmail fetch
 | GET | `/api/dashboard/stats/` | Dashboard statistics JSON |
 
 All endpoints require authentication (Session or Token).
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step Hetzner deployment guide |
+| [ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Admin usage instructions |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture reference |
+| [HOW.md](docs/HOW.md) | Technical implementation details |
+| [WHY.md](docs/WHY.md) | Business justification per component |
+| PLAYBOOK.docx | UI playbook with screenshots for all 3 roles |
 
 ---
 

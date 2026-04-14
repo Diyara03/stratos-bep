@@ -1,6 +1,6 @@
 # Stratos -- System Architecture
 
-## Status: Phase 8 COMPLETE -- ALL PHASES DONE (351 tests, 95% coverage, demo-ready)
+## Status: Phase 8 COMPLETE + System Settings + Production Deployment (473 tests)
 
 ## System Map
 
@@ -948,3 +948,96 @@ docs/
 | demo_setup       | emails/management/commands/demo_setup.py           | Viva demo data (idempotent)|
 | demo_teardown    | emails/management/commands/demo_teardown.py        | Clean demo data removal    |
 | sync_ti_feeds    | threat_intel/management/commands/sync_ti_feeds.py  | TI feed import from APIs   |
+
+## System Configuration (Post-Phase 8)
+
+### SystemConfig Model (Singleton)
+
+```
+SystemConfig (pk=1, always one row)
+  _virustotal_api_key     (Fernet-encrypted TextField)
+  _abuseipdb_api_key      (Fernet-encrypted TextField)
+  gmail_credentials_uploaded  (Boolean)
+  gmail_connection_status     (DISCONNECTED / CONNECTED / EXPIRED)
+  gmail_connected_email       (EmailField)
+  clean_threshold             (Integer, default 25)
+  malicious_threshold         (Integer, default 70)
+  fetch_interval_seconds      (Integer, default 10)
+  ti_sync_enabled             (Boolean, default True)
+  updated_at                  (auto)
+  updated_by                  (FK User)
+```
+
+API keys are encrypted using Fernet (AES-128-CBC) derived from Django SECRET_KEY.
+
+### Settings URL Patterns
+
+| Method | Path                          | View                          | Description                |
+|--------|-------------------------------|-------------------------------|----------------------------|
+| GET    | /settings/                    | settings_view                 | Settings page (ADMIN only) |
+| POST   | /settings/api-keys/           | save_api_keys                 | Save TI API keys           |
+| POST   | /settings/thresholds/         | save_thresholds               | Save detection thresholds  |
+| POST   | /settings/gmail/upload/       | upload_gmail_credentials      | Upload OAuth JSON file     |
+| GET    | /settings/gmail/connect/      | gmail_connect                 | Start OAuth web flow       |
+| GET    | /settings/gmail/callback/     | gmail_callback                | Google OAuth callback      |
+| POST   | /settings/gmail/disconnect/   | gmail_disconnect              | Remove token + disconnect  |
+| GET    | /settings/gmail/status/       | gmail_status                  | AJAX connection check      |
+| POST   | /settings/test/virustotal/    | test_virustotal               | Test VT API key            |
+| POST   | /settings/test/abuseipdb/     | test_abuseipdb                | Test AbuseIPDB key         |
+
+### Gmail OAuth Web Flow
+
+```
+Admin Browser                    Stratos Server                Google OAuth
+    |                                |                             |
+    |  Click "Connect Gmail"         |                             |
+    |------------------------------->|                             |
+    |                                |  Generate auth URL + state  |
+    |                                |  Save state in session      |
+    |  Redirect to Google            |                             |
+    |------------------------------------------------------->     |
+    |                                |                    Login    |
+    |                                |                    Grant    |
+    |  Redirect to /callback/?code=  |                             |
+    |<-------------------------------------------------------|     |
+    |------------------------------->|                             |
+    |                                |  Verify state (CSRF)       |
+    |                                |  Exchange code for token   |
+    |                                |  Save token to file        |
+    |                                |  Get email from Gmail API  |
+    |                                |  Update SystemConfig       |
+    |  Settings page: CONNECTED      |                             |
+    |<-------------------------------|                             |
+```
+
+### Production Deployment Architecture
+
+```
++-------------------------------------------------------------------+
+|                     Docker Compose Network                         |
+|                                                                    |
+|  +---------+  +-------+  +-----------+  +--------+  +-----------+ |
+|  | postgres |  | redis |  |  django   |  | celery |  | celery-   | |
+|  | :15      |  | :7    |  |  gunicorn |  | worker |  | beat      | |
+|  | 5432     |  | 6379  |  |  :8000    |  |        |  |           | |
+|  +---------+  +-------+  +-----------+  +--------+  +-----------+ |
+|                                |                                   |
+|  +-----------------------------+---+                               |
+|  |        caddy (reverse proxy)    |                               |
+|  |   :80 (HTTP) / :443 (HTTPS)    |                               |
+|  +---------------------------------+                               |
++-------------------------------------------------------------------+
+```
+
+### Key Files Added
+
+| File                         | Purpose                                    |
+|------------------------------|--------------------------------------------|
+| emails/models.py (SystemConfig) | Singleton config with encrypted API keys |
+| emails/settings_views.py     | 10 views for settings management           |
+| emails/settings_urls.py      | URL routing for /settings/                 |
+| templates/settings/index.html| Settings page template (ADMIN only)        |
+| docker-compose.prod.yml      | Production compose with Caddy + gunicorn   |
+| Caddyfile                    | Reverse proxy config (HTTP/HTTPS)          |
+| docs/DEPLOYMENT.md           | Step-by-step Hetzner deployment guide       |
+| docs/ADMIN_GUIDE.md          | Admin usage instructions                   |

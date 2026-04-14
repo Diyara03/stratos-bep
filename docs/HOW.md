@@ -1,6 +1,6 @@
 # Stratos -- Technical Implementation Reference
 
-## Status: Phase 8 COMPLETE -- ALL PHASES DONE (351 tests, 95% coverage, demo-ready)
+## Status: Phase 8 COMPLETE + System Settings + Production Deployment (473 tests)
 (updated automatically after each phase by documenter subagent)
 
 ---
@@ -1180,3 +1180,48 @@ Purpose: 7 new screenshots (14-20) captured with demo_setup data showing the fin
 | 20-users-page.png                      | User management with ADMIN/ANALYST/VIEWER  |
 
 Total screenshots: 20 (Phase 6: 9, Phase 7: 4, Phase 8: 7)
+
+---
+
+## System Configuration -- Post-Phase 8
+Location: `emails/models.py` (SystemConfig model), `emails/settings_views.py`, `templates/settings/index.html`
+Purpose: UI-driven configuration for API keys, Gmail OAuth, and detection thresholds.
+
+### SystemConfig Model (Singleton Pattern)
+Location: `emails/models.py`
+Key method: `get_solo()` -- returns the single SystemConfig row (pk=1), creating it if absent.
+
+API Key Encryption:
+- Uses `cryptography.fernet.Fernet` with a key derived from `hashlib.sha256(SECRET_KEY)`
+- `set_api_key(field, value)` encrypts and stores
+- `get_api_key(field)` decrypts and returns
+- `mask_key(value)` returns display-safe version (e.g., `sk-1****7f3a`)
+
+### Gmail Web OAuth Flow
+Location: `emails/settings_views.py` (gmail_connect, gmail_callback)
+Purpose: Replace the CLI-based `generate_gmail_token.py` with a browser-based OAuth flow.
+
+Key method: `gmail_connect(request)` -- builds a `google_auth_oauthlib.flow.Flow` with redirect URI pointing to the server's `/settings/gmail/callback/`. Saves state in `request.session` for CSRF protection.
+
+Key method: `gmail_callback(request)` -- receives Google's auth code, verifies the state parameter, exchanges the code for credentials, saves the token file, fetches the connected email via Gmail API `users().getProfile()`, and updates SystemConfig.
+
+### Services Integration
+The Decider reads `clean_threshold` and `malicious_threshold` from SystemConfig on each instantiation, falling back to `settings.CLEAN_THRESHOLD` / `settings.MALICIOUS_THRESHOLD` if the DB is unavailable.
+
+TI sync tasks (`sync_malwarebazaar_task`, `sync_urlhaus_task`) check `SystemConfig.ti_sync_enabled` before running.
+
+---
+
+## Production Deployment -- Post-Phase 8
+Location: `docker-compose.prod.yml`, `Caddyfile`, `Dockerfile`, `stratos_server/settings/prod.py`
+Purpose: Deploy to Hetzner Cloud with Caddy reverse proxy, gunicorn, and WhiteNoise static serving.
+
+Key changes from development:
+- `gunicorn` replaces `runserver` (3 workers, 120s timeout)
+- `whitenoise` serves static files (no nginx needed)
+- `Caddy` provides reverse proxy and automatic HTTPS
+- Production settings add security headers (X-Frame-Options, XSS filter, Content-Type sniff)
+- `CSRF_TRUSTED_ORIGINS` required for cross-origin form submissions
+
+See `docs/DEPLOYMENT.md` for step-by-step instructions.
+See `docs/ADMIN_GUIDE.md` for admin usage guide.

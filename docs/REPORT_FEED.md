@@ -734,4 +734,19 @@ Email analyzed --> Decider action=QUARANTINE or BLOCK
 - Test coverage of 95% across entire codebase demonstrates comprehensive quality assurance
 - Demo infrastructure (demo_setup, demo_teardown, DEMO_SCRIPT.md) ensures repeatable viva presentation
 - QUICK_REFERENCE.md provides examiner with a single-page project summary
-- KEY NUMBERS: Models: 15 | Migrations: 5 | Tests: 351 | Coverage: 82% full (95%+ core) | Screenshots: 20 | Diagrams: 11 (10 UML + 1 coverage) | Management commands: 4 | Test files: 15 | All phases: COMPLETE
+- KEY NUMBERS: Models: 16 | Migrations: 6 | Tests: 473 | Coverage: 95%+ | Screenshots: 20 | Diagrams: 11 (10 UML + 1 coverage) | Management commands: 4 | Test files: 19 | All phases: COMPLETE
+
+## FOR CHAPTER 5 (SYSTEM CONFIGURATION & DEPLOYMENT)
+- SystemConfig model: singleton pattern with Fernet-encrypted API key storage using SECRET_KEY-derived cipher
+- API key encryption: AES-128-CBC via cryptography.fernet.Fernet, keys never stored as plaintext in database
+- Gmail OAuth web flow: replaces CLI-based token generation with browser redirect flow, CSRF protected via session state
+- Settings page: ADMIN-only, 4 sections (Gmail Integration, TI API Keys, Detection Thresholds, Admin Reference)
+- Graceful degradation: system works without API keys (keyword + header analysis only), missing keys skip specific checks
+- Detection threshold configuration: ADMIN can adjust clean (default 25) and malicious (default 70) thresholds via UI
+- TI sync toggle: ADMIN can enable/disable daily MalwareBazaar + URLhaus feed sync
+- API key test buttons: one-click validation of VirusTotal and AbuseIPDB credentials
+- Production deployment: Docker Compose with 6 services (postgres, redis, django/gunicorn, celery, celery-beat, caddy)
+- Static files: WhiteNoise middleware serves compressed static assets without nginx
+- HTTPS: Caddy reverse proxy provides automatic Let's Encrypt TLS certificates
+- Deployment target: Hetzner CX22 (2 vCPU, 4GB RAM, ~4.50 EUR/month)
+- Security headers in production: X-Frame-Options DENY, XSS filter, Content-Type nosniff, secure cookies (when HTTPS)
