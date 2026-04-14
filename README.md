@@ -149,7 +149,7 @@ After deployment, configure integrations through the browser — no SSH needed:
 | **Fetch interval** | Set polling frequency (default: 10s) |
 | **TI sync** | Toggle daily MalwareBazaar + URLhaus import |
 
-API keys are encrypted at rest (Fernet AES-128-CBC). Full guide: [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md)
+API keys are encrypted at rest (Fernet AES-128-CBC).
 
 ---
 
@@ -203,13 +203,7 @@ stratos-bep/
 
 ## Screenshots
 
-| Page | Screenshot |
-|------|-----------|
-| Dashboard | ![Dashboard](docs/playbook_screenshots/02_dashboard.png) |
-| Email Detail | ![Email Detail](docs/playbook_screenshots/05_email_detail_malicious.png) |
-| Quarantine | ![Quarantine](docs/playbook_screenshots/07_quarantine.png) |
-| Threat Intel | ![Threat Intel](docs/playbook_screenshots/09_threat_intel.png) |
-| Settings | ![Settings](docs/playbook_screenshots/12_settings.png) |
+Screenshots of the Dashboard, Email Detail, Quarantine, Threat Intel, and Settings pages are available in the deployed application.
 
 ---
 
@@ -236,19 +230,6 @@ python manage.py fetch_emails        # Manual Gmail fetch
 | GET | `/api/dashboard/stats/` | Dashboard statistics JSON |
 
 All endpoints require authentication (Session or Token).
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step Hetzner deployment guide |
-| [ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Admin usage instructions |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture reference |
-| [HOW.md](docs/HOW.md) | Technical implementation details |
-| [WHY.md](docs/WHY.md) | Business justification per component |
-| PLAYBOOK.docx | UI playbook with screenshots for all 3 roles |
 
 ---
 
