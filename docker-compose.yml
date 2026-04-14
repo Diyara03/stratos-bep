@@ -1,0 +1,85 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stratos}
+      POSTGRES_USER: ${POSTGRES_USER:-stratos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stratos_dev_pw}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stratos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  django:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./credentials:/app/credentials
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    command: >
+      sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+
+  celery:
+    build: .
+    env_file: .env
+    volumes:
+      - ./credentials:/app/credentials
+    depends_on:
+      django:
+        condition: service_healthy
+    command: celery -A stratos_server worker --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A stratos_server inspect ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  celery-beat:
+    build: .
+    env_file: .env
+    volumes:
+      - ./credentials:/app/credentials
+    depends_on:
+      django:
+        condition: service_healthy
+    command: celery -A stratos_server beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A stratos_server inspect ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres_data:

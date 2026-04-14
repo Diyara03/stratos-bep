@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stratos_db}
+      POSTGRES_USER: ${POSTGRES_USER:-stratos_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stratos_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  django:
+    build: .
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: stratos_server.settings.prod
+    volumes:
+      - ./credentials:/app/credentials
+      - static_files:/app/staticfiles
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn stratos_server.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+    restart: unless-stopped
+
+  celery:
+    build: .
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: stratos_server.settings.prod
+    volumes:
+      - ./credentials:/app/credentials
+    depends_on:
+      django:
+        condition: service_healthy
+    command: celery -A stratos_server worker --loglevel=info --concurrency=2
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: stratos_server.settings.prod
+    volumes:
+      - ./credentials:/app/credentials
+    depends_on:
+      django:
+        condition: service_healthy
+    command: celery -A stratos_server beat --loglevel=info
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      django:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  static_files:
+  caddy_data:
+  caddy_config:

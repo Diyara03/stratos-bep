@@ -181,3 +181,100 @@ class ExtractedIOC(models.Model):
 
     def __str__(self):
         return f"{self.ioc_type}: {self.value[:50]}"
+
+
+class SystemConfig(models.Model):
+    """Singleton configuration for system integration keys and thresholds."""
+
+    # API Keys (encrypted with Fernet using Django SECRET_KEY)
+    _virustotal_api_key = models.TextField(blank=True, default='', db_column='virustotal_api_key')
+    _abuseipdb_api_key = models.TextField(blank=True, default='', db_column='abuseipdb_api_key')
+
+    # Gmail OAuth status
+    gmail_credentials_uploaded = models.BooleanField(default=False)
+    gmail_connection_status = models.CharField(
+        max_length=20,
+        choices=[('DISCONNECTED', 'Disconnected'), ('CONNECTED', 'Connected'), ('EXPIRED', 'Expired')],
+        default='DISCONNECTED',
+    )
+    gmail_connected_email = models.EmailField(blank=True)
+
+    # Detection thresholds
+    clean_threshold = models.IntegerField(default=25)
+    malicious_threshold = models.IntegerField(default=70)
+
+    # Fetch settings
+    fetch_interval_seconds = models.IntegerField(default=10)
+    ti_sync_enabled = models.BooleanField(default=True)
+
+    # Audit
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        verbose_name = 'System Configuration'
+        verbose_name_plural = 'System Configuration'
+
+    def __str__(self):
+        return 'System Configuration'
+
+    @classmethod
+    def get_solo(cls):
+        """Return the single SystemConfig instance, creating it if needed."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def _get_fernet(self):
+        """Create Fernet cipher from Django SECRET_KEY."""
+        import base64
+        import hashlib
+        from cryptography.fernet import Fernet
+        from django.conf import settings as django_settings
+        key = hashlib.sha256(django_settings.SECRET_KEY.encode()).digest()
+        return Fernet(base64.urlsafe_b64encode(key))
+
+    def set_api_key(self, field_name, value):
+        """Encrypt and store an API key."""
+        if not value:
+            setattr(self, field_name, '')
+            return
+        f = self._get_fernet()
+        encrypted = f.encrypt(value.encode()).decode()
+        setattr(self, field_name, encrypted)
+
+    def get_api_key(self, field_name):
+        """Decrypt and return an API key."""
+        encrypted = getattr(self, field_name)
+        if not encrypted:
+            return ''
+        try:
+            f = self._get_fernet()
+            return f.decrypt(encrypted.encode()).decode()
+        except Exception:
+            return ''
+
+    @property
+    def virustotal_api_key(self):
+        return self.get_api_key('_virustotal_api_key')
+
+    @virustotal_api_key.setter
+    def virustotal_api_key(self, value):
+        self.set_api_key('_virustotal_api_key', value)
+
+    @property
+    def abuseipdb_api_key(self):
+        return self.get_api_key('_abuseipdb_api_key')
+
+    @abuseipdb_api_key.setter
+    def abuseipdb_api_key(self, value):
+        self.set_api_key('_abuseipdb_api_key', value)
+
+    def mask_key(self, key_value):
+        """Return masked version of an API key for display."""
+        if not key_value:
+            return ''
+        if len(key_value) <= 8:
+            return '****'
+        return key_value[:4] + '****' + key_value[-4:]

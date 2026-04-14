@@ -14,6 +14,8 @@ urlpatterns = [
     path('threat-intel/', include('threat_intel.template_urls')),
     path('reports/', include('reports.template_urls')),
     path('', include('accounts.template_urls')),
+    # Settings
+    path('settings/', include('emails.settings_urls')),
     # Phase 6 (catch-all, must be last)
     path('', include('emails.template_urls')),
 ]

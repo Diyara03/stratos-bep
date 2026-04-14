@@ -1,0 +1,12 @@
+# Caddyfile for Stratos BEP
+# Replace YOUR_SERVER_IP with your Hetzner server IP or domain name.
+#
+# Option A: IP only (HTTP, no TLS)
+#   :80 {
+#
+# Option B: Domain with automatic HTTPS
+#   stratos.yourdomain.com {
+
+:80 {
+    reverse_proxy django:8000
+}

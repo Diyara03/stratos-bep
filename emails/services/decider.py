@@ -25,8 +25,16 @@ class DecisionResult:
 class Decider:
     """Produces a final verdict from Preprocessor and Checker results."""
 
-    CLEAN_THRESHOLD = getattr(settings, 'CLEAN_THRESHOLD', 25)
-    MALICIOUS_THRESHOLD = getattr(settings, 'MALICIOUS_THRESHOLD', 70)
+    def __init__(self):
+        # Read thresholds from SystemConfig (DB) with settings.py fallback
+        try:
+            from emails.models import SystemConfig
+            config = SystemConfig.get_solo()
+            self.CLEAN_THRESHOLD = config.clean_threshold
+            self.MALICIOUS_THRESHOLD = config.malicious_threshold
+        except Exception:
+            self.CLEAN_THRESHOLD = getattr(settings, 'CLEAN_THRESHOLD', 25)
+            self.MALICIOUS_THRESHOLD = getattr(settings, 'MALICIOUS_THRESHOLD', 70)
 
     def decide(self, preprocess_result: PreprocessResult, check_result: CheckResult) -> DecisionResult:
         """

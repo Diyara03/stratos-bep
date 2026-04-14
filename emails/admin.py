@@ -6,6 +6,7 @@ from .models import (
     EmailAttachment,
     ExtractedIOC,
     QuarantineEntry,
+    SystemConfig,
 )
 
 
@@ -40,3 +41,6 @@ class ExtractedIOCAdmin(admin.ModelAdmin):
     list_display = ('email', 'ioc_type', 'value', 'severity')
     list_filter = ('ioc_type', 'severity')
     search_fields = ('value',)
+
+
+admin.site.register(SystemConfig)

@@ -178,10 +178,10 @@ class FileExistenceTests(TestCase):
             "SECRET_KEY",
             "DATABASE_URL",
             "REDIS_URL",
-            "VIRUSTOTAL_API_KEY",
-            "ABUSEIPDB_API_KEY",
-            "CLEAN_THRESHOLD",
-            "MALICIOUS_THRESHOLD",
+            # API keys and thresholds are now managed via Settings UI
+            # but should still be referenced in .env.example
+            "GMAIL_CREDENTIALS_PATH",
+            "GMAIL_TOKEN_PATH",
         ]
         missing = [v for v in required_vars if v not in content]
         self.assertEqual(missing, [], f"Missing vars in .env.example: {missing}")

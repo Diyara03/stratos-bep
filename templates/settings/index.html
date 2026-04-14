@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Stratos BEP{% endblock %}
+{% block page_title %}System Settings{% endblock %}
+
+{% block content %}
+<!-- Success/Error Messages -->
+{% if messages %}
+<div style="margin-bottom: 1.5rem;">
+  {% for message in messages %}
+  <div class="alert alert--{{ message.tags }}" style="padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.875rem;
+    {% if message.tags == 'success' %}background: #DCFCE7; color: #16A34A; border: 1px solid #BBF7D0;
+    {% elif message.tags == 'error' %}background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA;
+    {% else %}background: #DBEAFE; color: #2563EB; border: 1px solid #BFDBFE;{% endif %}">
+    {{ message }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Gmail Integration -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card__header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h3 class="card__title" style="margin: 0;">Gmail Integration</h3>
+    <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;
+      {% if config.gmail_connection_status == 'CONNECTED' %}background: #DCFCE7; color: #16A34A;
+      {% elif config.gmail_connection_status == 'EXPIRED' %}background: #FEF3C7; color: #D97706;
+      {% else %}background: #F1F5F9; color: #64748B;{% endif %}">
+      <span style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+        {% if config.gmail_connection_status == 'CONNECTED' %}background: #16A34A;
+        {% elif config.gmail_connection_status == 'EXPIRED' %}background: #D97706;
+        {% else %}background: #94A3B8;{% endif %}"></span>
+      {{ config.gmail_connection_status }}
+    </span>
+  </div>
+  <div class="card__body">
+    {% if config.gmail_connection_status == 'CONNECTED' %}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+      <div>
+        <div style="font-size: 0.75rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Protected Mailbox</div>
+        <div style="font-weight: 600; color: #1E293B;">{{ config.gmail_connected_email|default:"Unknown" }}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.75rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Fetch Interval</div>
+        <div style="font-weight: 600; color: #1E293B;">Every {{ config.fetch_interval_seconds }}s</div>
+      </div>
+    </div>
+    <form method="post" action="{% url 'settings:gmail-disconnect' %}" style="display: inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--danger" onclick="return confirm('Disconnect Gmail? Email fetching will stop.')">Disconnect Gmail</button>
+    </form>
+    {% else %}
+    <!-- Step 1: Upload credentials -->
+    <div style="margin-bottom: 1.5rem;">
+      <div style="font-weight: 600; margin-bottom: 0.5rem; color: #1E293B;">
+        Step 1: Upload OAuth Credentials
+        {% if gmail_creds_exist %}
+        <span style="color: #16A34A; font-size: 0.8rem; margin-left: 8px;">Uploaded</span>
+        {% endif %}
+      </div>
+      <p style="font-size: 0.85rem; color: #64748B; margin-bottom: 0.75rem;">
+        Download a <strong>Web Application</strong> OAuth 2.0 client from
+        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color: #2563EB;">Google Cloud Console</a>.
+        Set the redirect URI to: <code style="background: #F1F5F9; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">{{ request.scheme }}://{{ request.get_host }}/settings/gmail/callback/</code>
+      </p>
+      <form method="post" action="{% url 'settings:gmail-upload' %}" enctype="multipart/form-data" id="gmail-upload-form">
+        {% csrf_token %}
+        <input type="file" name="gmail_credentials" accept=".json" id="gmail-file-input"
+               style="position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden;"
+               onchange="document.getElementById('gmail-file-name').textContent = this.files[0] ? this.files[0].name : 'No file selected';">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button type="button" class="btn btn--secondary" onclick="document.getElementById('gmail-file-input').click();">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: -2px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Choose File
+          </button>
+          <span id="gmail-file-name" style="font-size: 0.85rem; color: #64748B;">No file selected</span>
+          <button type="submit" class="btn btn--primary">Upload</button>
+        </div>
+      </form>
+    </div>
+    <!-- Step 2: Connect -->
+    <div>
+      <div style="font-weight: 600; margin-bottom: 0.5rem; color: #1E293B;">Step 2: Authorize Gmail Access</div>
+      <p style="font-size: 0.85rem; color: #64748B; margin-bottom: 0.75rem;">
+        Click below to sign in with Google and grant Stratos read access to the protected mailbox.
+      </p>
+      <a href="{% url 'settings:gmail-connect' %}" class="btn btn--primary {% if not gmail_creds_exist %}btn--disabled{% endif %}"
+         {% if not gmail_creds_exist %}onclick="return false;" style="opacity: 0.5; pointer-events: none;"{% endif %}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px; vertical-align: -2px;">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+          <polyline points="22,6 12,13 2,6"></polyline>
+        </svg>
+        Connect Gmail Account
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Threat Intelligence API Keys -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card__header">
+    <h3 class="card__title" style="margin: 0;">Threat Intelligence API Keys</h3>
+  </div>
+  <div class="card__body">
+    <form method="post" action="{% url 'settings:save-api-keys' %}">
+      {% csrf_token %}
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+        <!-- VirusTotal -->
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.85rem; color: #1E293B;">
+            VirusTotal API Key
+            <span style="font-weight: 400; color: #64748B; font-size: 0.75rem; margin-left: 4px;">(4 req/min)</span>
+          </label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="password" name="virustotal_api_key" placeholder="{{ vt_key_masked|default:'Enter API key' }}"
+                   class="input" style="flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+            <button type="button" class="btn btn--secondary btn--sm" onclick="testApiKey('virustotal')" id="btn-test-vt">Test</button>
+          </div>
+          <div id="vt-result" style="font-size: 0.8rem; margin-top: 4px;"></div>
+          {% if vt_key_masked %}
+          <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Current: <code>{{ vt_key_masked }}</code></div>
+          {% endif %}
+        </div>
+        <!-- AbuseIPDB -->
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.85rem; color: #1E293B;">
+            AbuseIPDB API Key
+            <span style="font-weight: 400; color: #64748B; font-size: 0.75rem; margin-left: 4px;">(1000/day)</span>
+          </label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="password" name="abuseipdb_api_key" placeholder="{{ abuseipdb_key_masked|default:'Enter API key' }}"
+                   class="input" style="flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+            <button type="button" class="btn btn--secondary btn--sm" onclick="testApiKey('abuseipdb')" id="btn-test-abuse">Test</button>
+          </div>
+          <div id="abuseipdb-result" style="font-size: 0.8rem; margin-top: 4px;"></div>
+          {% if abuseipdb_key_masked %}
+          <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Current: <code>{{ abuseipdb_key_masked }}</code></div>
+          {% endif %}
+        </div>
+      </div>
+      <p style="font-size: 0.8rem; color: #94A3B8; margin-bottom: 1rem;">
+        Leave a field blank to keep the existing key. Keys are encrypted at rest.
+      </p>
+      <button type="submit" class="btn btn--primary">Save API Keys</button>
+    </form>
+  </div>
+</div>
+
+<!-- Detection Thresholds -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card__header">
+    <h3 class="card__title" style="margin: 0;">Detection Thresholds</h3>
+  </div>
+  <div class="card__body">
+    <form method="post" action="{% url 'settings:save-thresholds' %}">
+      {% csrf_token %}
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.85rem; color: #1E293B;">Clean Threshold</label>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="range" name="clean_threshold" min="0" max="100" value="{{ config.clean_threshold }}"
+                   oninput="this.nextElementSibling.textContent=this.value" style="flex: 1;">
+            <span style="font-weight: 700; font-size: 1.1rem; color: #16A34A; min-width: 30px;">{{ config.clean_threshold }}</span>
+          </div>
+          <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">Score below this = CLEAN</div>
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.85rem; color: #1E293B;">Malicious Threshold</label>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="range" name="malicious_threshold" min="0" max="100" value="{{ config.malicious_threshold }}"
+                   oninput="this.nextElementSibling.textContent=this.value" style="flex: 1;">
+            <span style="font-weight: 700; font-size: 1.1rem; color: #DC2626; min-width: 30px;">{{ config.malicious_threshold }}</span>
+          </div>
+          <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">Score at/above this = MALICIOUS</div>
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.85rem; color: #1E293B;">Fetch Interval</label>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="number" name="fetch_interval_seconds" value="{{ config.fetch_interval_seconds }}" min="5" max="3600"
+                   class="input" style="width: 80px; text-align: center;">
+            <span style="font-size: 0.85rem; color: #64748B;">seconds</span>
+          </div>
+          <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">How often to check Gmail</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" name="ti_sync_enabled" {% if config.ti_sync_enabled %}checked{% endif %}
+                 style="width: 18px; height: 18px; accent-color: #2563EB;">
+          <span style="font-weight: 600; font-size: 0.85rem; color: #1E293B;">Enable TI Feed Sync</span>
+          <span style="font-size: 0.8rem; color: #64748B;">(MalwareBazaar + URLhaus daily sync)</span>
+        </label>
+      </div>
+      <div style="padding: 0.75rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 1rem;">
+        <div style="font-size: 0.8rem; color: #64748B;">
+          Scores between <strong style="color: #16A34A;">{{ config.clean_threshold }}</strong> and
+          <strong style="color: #DC2626;">{{ config.malicious_threshold }}</strong> are classified as
+          <strong style="color: #D97706;">SUSPICIOUS</strong>
+        </div>
+      </div>
+      <button type="submit" class="btn btn--primary">Save Detection Settings</button>
+    </form>
+  </div>
+</div>
+
+<!-- Admin Guide -->
+<div class="card">
+  <div class="card__header">
+    <h3 class="card__title" style="margin: 0;">Admin Quick Reference</h3>
+  </div>
+  <div class="card__body" style="font-size: 0.85rem; color: #475569; line-height: 1.7;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+      <div>
+        <h4 style="color: #16A34A; margin: 0 0 0.5rem 0; font-size: 0.85rem;">DO</h4>
+        <ul style="margin: 0; padding-left: 1.2rem;">
+          <li>Use a <strong>Web Application</strong> OAuth client type in Google Cloud Console</li>
+          <li>Set the redirect URI to match your server URL exactly</li>
+          <li>Test API keys after entering them</li>
+          <li>Keep thresholds at defaults (25/70) unless you have a reason to change</li>
+          <li>Monitor the dashboard for unusual detection patterns after changes</li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="color: #DC2626; margin: 0 0 0.5rem 0; font-size: 0.85rem;">DO NOT</h4>
+        <ul style="margin: 0; padding-left: 1.2rem;">
+          <li>Share API keys or OAuth credentials with anyone</li>
+          <li>Set the clean threshold higher than malicious threshold</li>
+          <li>Set fetch interval below 5 seconds (rate limiting risk)</li>
+          <li>Disconnect Gmail during an active email analysis</li>
+          <li>Upload a <strong>Desktop Application</strong> credentials file (it will not work for web OAuth)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function testApiKey(provider) {
+  const btn = document.getElementById('btn-test-' + (provider === 'virustotal' ? 'vt' : 'abuse'));
+  const resultDiv = document.getElementById(provider === 'virustotal' ? 'vt-result' : 'abuseipdb-result');
+  btn.disabled = true;
+  btn.textContent = 'Testing...';
+  resultDiv.textContent = '';
+
+  fetch('/settings/test/' + provider + '/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+    },
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      resultDiv.style.color = '#16A34A';
+      resultDiv.textContent = data.message;
+    } else {
+      resultDiv.style.color = '#DC2626';
+      resultDiv.textContent = data.error;
+    }
+  })
+  .catch(err => {
+    resultDiv.style.color = '#DC2626';
+    resultDiv.textContent = 'Connection error: ' + err.message;
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = 'Test';
+  });
+}
+</script>
+{% endblock %}
