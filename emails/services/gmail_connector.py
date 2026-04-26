@@ -74,7 +74,11 @@ class GmailConnector:
 
     def fetch_new_emails(self, max_results: int = 10) -> list[dict]:
         """
-        Fetch new emails from INBOX, skipping those already in DB.
+        Fetch new emails from INBOX and SPAM, skipping those already in DB.
+
+        Spam is included so Stratos still analyzes messages that Gmail's
+        own filter intercepts — a real BEP gateway would see those before
+        any filter ran, so excluding them would understate detection.
 
         Args:
             max_results: Maximum number of messages to list from Gmail.
@@ -83,7 +87,7 @@ class GmailConnector:
             List of raw Gmail API message dicts (full format) for new emails.
         """
         results = self.service.users().messages().list(
-            userId='me', labelIds=['INBOX'], maxResults=max_results
+            userId='me', q='in:inbox OR in:spam', maxResults=max_results
         ).execute()
 
         messages = results.get('messages', [])
