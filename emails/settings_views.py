@@ -3,6 +3,7 @@ import json
 import logging
 import os
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, JsonResponse
@@ -169,8 +170,9 @@ def gmail_connect(request):
 
         SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
-        # Determine redirect URI
-        scheme = 'https' if request.is_secure() else 'http'
+        # Determine redirect URI. Behind a reverse proxy (Caddy) the request
+        # may not look secure to Django, so force https whenever DEBUG is off.
+        scheme = 'http' if settings.DEBUG and not request.is_secure() else 'https'
         redirect_uri = f'{scheme}://{request.get_host()}/settings/gmail/callback/'
 
         flow = Flow.from_client_secrets_file(creds_path, scopes=SCOPES, redirect_uri=redirect_uri)

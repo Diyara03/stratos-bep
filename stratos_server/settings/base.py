@@ -16,6 +16,12 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'change-me-in-production')
 
 ALLOWED_HOSTS = []
 
+# Reverse proxy (Caddy) terminates TLS and forwards requests over plain HTTP.
+# Trust the X-Forwarded-Proto header so request.is_secure() returns True, and
+# use X-Forwarded-Host so request.get_host() returns the public domain.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
