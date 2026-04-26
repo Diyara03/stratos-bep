@@ -42,6 +42,24 @@ class Command(BaseCommand):
         if feed in ('urlhaus', 'all'):
             self._sync_urlhaus(limit)
 
+    def _extract_csv_header(self, lines: list[str]) -> list[str] | None:
+        """
+        URLhaus and MalwareBazaar prefix the CSV header line with '#'.
+        Return the last commented line that looks like a CSV header
+        (contains several commas), parsed into a list of column names.
+        """
+        last_header_line = None
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith('#') and stripped.count(',') >= 3:
+                last_header_line = stripped.lstrip('#').strip()
+        if not last_header_line:
+            return None
+        parsed = next(csv.reader(io.StringIO(last_header_line)), None)
+        if not parsed:
+            return None
+        return [col.strip().strip('"') for col in parsed]
+
     def _sync_malwarebazaar(self, limit: int) -> None:
         """Sync hashes from MalwareBazaar recent CSV export."""
         self.stdout.write('Syncing MalwareBazaar...')
@@ -56,24 +74,11 @@ class Command(BaseCommand):
             self.stderr.write(f'MalwareBazaar fetch failed: {e}')
             return
 
-        # Parse CSV, skipping comment lines starting with '#'
         lines = response.text.splitlines()
-        data_lines = [line for line in lines if not line.startswith('#')]
-
-        if not data_lines:
-            self.stdout.write('MalwareBazaar: no data lines found')
-            return
-
-        reader = csv.reader(io.StringIO('\n'.join(data_lines)))
-
-        # Find header row and column indices
-        header = next(reader, None)
+        header = self._extract_csv_header(lines)
         if not header:
             self.stdout.write('MalwareBazaar: no header row found')
             return
-
-        # Strip whitespace from headers
-        header = [h.strip().strip('"') for h in header]
 
         try:
             sha256_idx = header.index('sha256_hash')
@@ -82,6 +87,12 @@ class Command(BaseCommand):
         except ValueError as e:
             self.stderr.write(f'MalwareBazaar: missing expected column: {e}')
             return
+
+        data_lines = [
+            line for line in lines
+            if line.strip() and not line.startswith('#')
+        ]
+        reader = csv.reader(io.StringIO('\n'.join(data_lines)))
 
         sha256_pattern = re.compile(r'^[a-fA-F0-9]{64}$')
         new_count = 0
@@ -137,24 +148,11 @@ class Command(BaseCommand):
             self.stderr.write(f'URLhaus fetch failed: {e}')
             return
 
-        # Parse CSV, skipping comment lines starting with '#'
         lines = response.text.splitlines()
-        data_lines = [line for line in lines if not line.startswith('#')]
-
-        if not data_lines:
-            self.stdout.write('URLhaus: no data lines found')
-            return
-
-        reader = csv.reader(io.StringIO('\n'.join(data_lines)))
-
-        # Find header row and column indices
-        header = next(reader, None)
+        header = self._extract_csv_header(lines)
         if not header:
             self.stdout.write('URLhaus: no header row found')
             return
-
-        # Strip whitespace from headers
-        header = [h.strip().strip('"') for h in header]
 
         try:
             url_idx = header.index('url')
@@ -169,6 +167,12 @@ class Command(BaseCommand):
             if candidate in header:
                 threat_idx = header.index(candidate)
                 break
+
+        data_lines = [
+            line for line in lines
+            if line.strip() and not line.startswith('#')
+        ]
+        reader = csv.reader(io.StringIO('\n'.join(data_lines)))
 
         new_count = 0
         updated_count = 0
