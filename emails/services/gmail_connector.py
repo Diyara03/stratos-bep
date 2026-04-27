@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
+QUARANTINE_LABEL_NAME = 'Stratos/Quarantine'
+
 
 class GmailConnector:
     """Connects to Gmail API for email ingestion."""
@@ -127,6 +129,56 @@ class GmailConnector:
             userId='me',
             id=gmail_message_id,
             body={'removeLabelIds': ['UNREAD']}
+        ).execute()
+
+    def _get_or_create_quarantine_label(self) -> str:
+        """Return the label ID for Stratos/Quarantine, creating it on first use."""
+        if getattr(self, '_quarantine_label_id', None):
+            return self._quarantine_label_id
+
+        labels = self.service.users().labels().list(userId='me').execute()
+        for label in labels.get('labels', []):
+            if label.get('name') == QUARANTINE_LABEL_NAME:
+                self._quarantine_label_id = label['id']
+                return label['id']
+
+        created = self.service.users().labels().create(
+            userId='me',
+            body={
+                'name': QUARANTINE_LABEL_NAME,
+                'labelListVisibility': 'labelShow',
+                'messageListVisibility': 'show',
+            },
+        ).execute()
+        self._quarantine_label_id = created['id']
+        return created['id']
+
+    def move_to_quarantine(self, gmail_message_id: str) -> None:
+        """
+        Hide a message from the recipient's inbox by removing the INBOX label
+        and tagging it with Stratos/Quarantine. The message is still in the
+        mailbox; it just no longer appears under "Inbox" until released.
+        """
+        label_id = self._get_or_create_quarantine_label()
+        self.service.users().messages().modify(
+            userId='me',
+            id=gmail_message_id,
+            body={
+                'addLabelIds': [label_id],
+                'removeLabelIds': ['INBOX'],
+            },
+        ).execute()
+
+    def restore_from_quarantine(self, gmail_message_id: str) -> None:
+        """Move a quarantined message back into INBOX."""
+        label_id = self._get_or_create_quarantine_label()
+        self.service.users().messages().modify(
+            userId='me',
+            id=gmail_message_id,
+            body={
+                'addLabelIds': ['INBOX'],
+                'removeLabelIds': [label_id],
+            },
         ).execute()
 
     def _fetch_attachment_data(self, gmail_message_id: str, attachment_id: str) -> bytes:

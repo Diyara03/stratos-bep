@@ -1,5 +1,6 @@
 """Template views for the Stratos BEP dashboard UI."""
 import json
+import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -11,6 +12,8 @@ from django.utils import timezone
 
 from emails.models import Email, AnalysisResult, ExtractedIOC, QuarantineEntry
 from threat_intel.models import BlacklistEntry, MaliciousDomain, MaliciousHash
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -181,6 +184,17 @@ def quarantine_action_view(request, pk):
         entry.save()
         entry.email.status = 'DELIVERED'
         entry.email.save(update_fields=['status'])
+        # Restore the message to the recipient's Gmail inbox. Soft-fail so
+        # release still succeeds in our DB if the Gmail call errors.
+        if entry.email.gmail_id:
+            try:
+                from emails.services.gmail_connector import GmailConnector
+                GmailConnector().restore_from_quarantine(entry.email.gmail_id)
+            except Exception:
+                logger.exception(
+                    "Failed to restore email %s from Gmail quarantine",
+                    entry.email.id,
+                )
         messages.success(request, f'Email from {entry.email.from_address} released.')
 
     elif action == 'block':

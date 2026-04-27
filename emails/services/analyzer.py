@@ -146,6 +146,18 @@ class EmailAnalyzer:
                     'action': action,
                 },
             )
+            # Hide the message from the recipient's Gmail inbox until an
+            # analyst reviews it. Soft-fail: if Gmail is unreachable we still
+            # quarantine in our DB and surface it in the UI.
+            if email.gmail_id:
+                try:
+                    from emails.services.gmail_connector import GmailConnector
+                    GmailConnector().move_to_quarantine(email.gmail_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to move email %s to Gmail quarantine label",
+                        email.id,
+                    )
 
     def _save_preprocess_result(self, email: Email, result: PreprocessResult) -> None:
         """
