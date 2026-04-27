@@ -32,7 +32,8 @@ class EmailAnalyzer:
             1. Set Email.status = 'ANALYZING'
             2. Run Preprocessor
             3. If whitelist match: finalize as CLEAN/DELIVERED
-            4. Else: save preprocess result, run Checker, run Decider, finalize
+            4. If blacklist match: finalize as MALICIOUS/BLOCK
+            5. Else: save preprocess result, run Checker, run Decider, finalize
 
         Args:
             email_id: Primary key of the Email to analyze.
@@ -55,6 +56,20 @@ class EmailAnalyzer:
                 score=0,
                 confidence='HIGH',
                 action='DELIVER',
+                preprocess_result=preprocess_result,
+                check_result=None,
+                duration_ms=int((time.time() - start) * 1000),
+            )
+            return
+
+        if preprocess_result.verdict_override == 'MALICIOUS':
+            # Blacklist short-circuit -- analyst-curated block
+            self._finalize(
+                email,
+                verdict='MALICIOUS',
+                score=100,
+                confidence='HIGH',
+                action='BLOCK',
                 preprocess_result=preprocess_result,
                 check_result=None,
                 duration_ms=int((time.time() - start) * 1000),

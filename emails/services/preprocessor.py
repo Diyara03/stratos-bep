@@ -49,10 +49,16 @@ class Preprocessor:
             if whitelisted:
                 return whitelist_result
 
-            # 2. Blacklist check
-            blacklist_findings, blacklist_score = self._check_blacklist(email.from_address)
+            # 2. Blacklist check -- a match still goes through the rest of
+            # preprocessing for score accumulation (so combined-signal tests
+            # behave the same), but flips verdict_override to MALICIOUS so
+            # the analyzer short-circuits to MALICIOUS/BLOCK regardless of
+            # what the Checker would otherwise score.
+            blacklist_findings, blacklist_score, is_blacklisted = self._check_blacklist(email.from_address)
             result.score += blacklist_score
             result.findings.update(blacklist_findings)
+            if is_blacklisted:
+                result.verdict_override = 'MALICIOUS'
 
             # 3. Email authentication check
             auth_findings, auth_score, spf, dkim, dmarc = self._check_email_auth(
@@ -120,37 +126,38 @@ class Preprocessor:
             logger.exception("Whitelist check failed for %s", email_address)
             return False, None
 
-    def _check_blacklist(self, email_address: str) -> tuple[dict, int]:
+    def _check_blacklist(self, email_address: str) -> tuple[dict, int, bool]:
         """
         Check if the email address or its domain is blacklisted.
 
         Returns:
-            (findings_dict, total_blacklist_score)
+            (findings_dict, total_blacklist_score, is_blacklisted)
         """
         try:
             domain = email_address.rsplit('@', 1)[-1].lower()
             findings = {}
             score = 0
+            matched = False
 
-            # Check email blacklist
             if BlacklistEntry.objects.filter(
                 entry_type='EMAIL', value__iexact=email_address
             ).exists():
                 score += 40
                 findings['blacklist_email'] = True
+                matched = True
 
-            # Check domain blacklist
             if BlacklistEntry.objects.filter(
                 entry_type='DOMAIN', value__iexact=domain
             ).exists():
                 score += 30
                 findings['blacklist_domain'] = True
+                matched = True
 
-            return findings, score
+            return findings, score, matched
 
         except Exception:
             logger.exception("Blacklist check failed for %s", email_address)
-            return {}, 0
+            return {}, 0, False
 
     def _check_email_auth(self, headers_raw) -> tuple[dict, int, str, str, str]:
         """
